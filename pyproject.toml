@@ -17,7 +17,11 @@ dependencies = [
     "python-daemon>=3.0",
     "lockfile>=0.12.2",
     "importlib_resources",
+    "eatws-shakemods",
 ]
+
+[tool.uv.sources]
+eatws-shakemods = { git = "https://bitbucket.org/geoscienceaustralia/eatws-shakemods", tag="v0.3" }
 
 [project.optional-dependencies]
 dev = [
