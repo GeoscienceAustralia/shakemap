@@ -21,7 +21,7 @@ dependencies = [
 ]
 
 [tool.uv.sources]
-eatws-shakemods = { git = "https://bitbucket.org/geoscienceaustralia/eatws-shakemods", tag="v0.3" }
+eatws-shakemods = { git = "https://bitbucket.org/geoscienceaustralia/eatws-shakemods", tag="v0.3.3" }
 
 [project.optional-dependencies]
 dev = [
