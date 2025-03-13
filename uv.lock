@@ -555,8 +555,8 @@ wheels = [
 
 [[package]]
 name = "eatws-shakemods"
-version = "0.3.3"
-source = { git = "https://bitbucket.org/geoscienceaustralia/eatws-shakemods?tag=v0.3.3#b5317abb64f0dd68e5a499a2607076caf287495e" }
+version = "0.3.4"
+source = { git = "https://bitbucket.org/geoscienceaustralia/eatws-shakemods?tag=v0.3.4#08086fe75710ce3052dff8bbe428b74a7e1cad8d" }
 
 [[package]]
 name = "email-validator"
@@ -2531,7 +2531,7 @@ requires-dist = [
     { name = "build", marker = "extra == 'build'" },
     { name = "build", marker = "extra == 'dev'", specifier = ">=0.7.0" },
     { name = "check-wheel-contents", marker = "extra == 'build'" },
-    { name = "eatws-shakemods", git = "https://bitbucket.org/geoscienceaustralia/eatws-shakemods?tag=v0.3.3" },
+    { name = "eatws-shakemods", git = "https://bitbucket.org/geoscienceaustralia/eatws-shakemods?tag=v0.3.4" },
     { name = "esi-utils-comcat", specifier = ">=0.0.2" },
     { name = "flake8", marker = "extra == 'dev'", specifier = ">=3.9" },
     { name = "furo", marker = "extra == 'doc'", specifier = ">=2023.3.27" },
