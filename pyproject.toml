@@ -1,6 +1,6 @@
 [project]
 name = "shakemap"
-dynamic = ["version"]
+version = "4.4.0post2"
 description = "USGS Near-Real-Time Ground Motion Mapping"
 authors = [
     {name = "Bruce Worden", email = "cbworden@usgs.gov"},
@@ -12,7 +12,7 @@ readme = "README.md"
 requires-python = ">=3.12,<3.13"
 
 dependencies = [
-    "shakemap-modules[all]>=1.0.25",
+    "shakemap-modules[all]==1.1.4post1",
     "esi-utils-comcat>=0.0.2",
     "python-daemon>=3.0",
     "lockfile>=0.12.2",
@@ -20,8 +20,12 @@ dependencies = [
     "eatws-shakemods",
 ]
 
+[tool.uv]
+cache-keys = [{ file = "**" }]
+
 [tool.uv.sources]
 eatws-shakemods = { git = "https://bitbucket.org/geoscienceaustralia/eatws-shakemods", tag="v0.3.4" }
+shakemap-modules = { path = "./shakemap-modules" }
 
 [project.optional-dependencies]
 dev = [
@@ -79,7 +83,6 @@ se_stations = "shakemap.bin.se_stations:main"
 requires = [
   "setuptools>=42",
   "wheel",
-  "setuptools_scm[toml]>=3.4",
   "numpy",
 ]
 build-backend = "setuptools.build_meta"
@@ -91,5 +94,3 @@ include-package-data = true
 where = ["src"]
 include = ["shakemap*"]
 exclude = ["tests*"]
-
-[tool.setuptools_scm]

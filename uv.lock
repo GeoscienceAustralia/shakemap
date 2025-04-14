@@ -522,6 +522,15 @@ wheels = [
 ]
 
 [[package]]
+name = "dill"
+version = "0.3.9"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/70/43/86fe3f9e130c4137b0f1b50784dd70a5087b911fe07fa81e53e0c4c47fea/dill-0.3.9.tar.gz", hash = "sha256:81aa267dddf68cbfe8029c42ca9ec6a4ab3b22371d1c450abc54422577b4512c", size = 187000 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/46/d1/e73b6ad76f0b1fb7f23c35c6d95dbc506a9c8804f43dda8cb5b0fa6331fd/dill-0.3.9-py3-none-any.whl", hash = "sha256:468dff3b89520b474c0397703366b7b95eebe6303f108adf9b19da1f702be87a", size = 119418 },
+]
+
+[[package]]
 name = "django"
 version = "4.2.20"
 source = { registry = "https://pypi.org/simple" }
@@ -2482,6 +2491,7 @@ wheels = [
 
 [[package]]
 name = "shakemap"
+version = "4.4.0.post2"
 source = { editable = "." }
 dependencies = [
     { name = "eatws-shakemods" },
@@ -2547,7 +2557,7 @@ requires-dist = [
     { name = "pytest-faulthandler", marker = "extra == 'test'", specifier = ">=2.0.1" },
     { name = "python-daemon", specifier = ">=3.0" },
     { name = "recommonmark", marker = "extra == 'doc'", specifier = ">=0.7.1" },
-    { name = "shakemap-modules", extras = ["all"], specifier = ">=1.0.25" },
+    { name = "shakemap-modules", extras = ["all"], directory = "shakemap-modules" },
     { name = "sphinx", marker = "extra == 'doc'", specifier = ">5.0.0" },
     { name = "sphinx-autoapi", marker = "extra == 'doc'", specifier = ">=2.1.0" },
     { name = "sphinx-copybutton", marker = "extra == 'doc'", specifier = ">=0.5.2" },
@@ -2559,23 +2569,20 @@ provides-extras = ["dev", "test", "doc", "build"]
 
 [[package]]
 name = "shakemap-modules"
-version = "1.1.1"
-source = { registry = "https://pypi.org/simple" }
+version = "1.1.4.post1"
+source = { directory = "shakemap-modules" }
 dependencies = [
     { name = "configobj" },
     { name = "esi-shakelib" },
     { name = "h5py" },
     { name = "importlib-resources" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/a4/af/ffee92b358bde1dc75c8295e0fa9afcf766df6fb7521ea782695f4e83077/shakemap_modules-1.1.1.tar.gz", hash = "sha256:82b6698b84ff696272bf5d0d61c18ce267b89632ba870f565f59cdca137f11b6", size = 280494 }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/d9/1e/654e4101adea1600dc6dc0d692a7b5bca6e463307ebe91ecc2a7ad2c5e8e/shakemap_modules-1.1.1-py3-none-any.whl", hash = "sha256:52df425bfe41e793d581def51faa0e3cd69c1aa73d7b213032e704d8afebd8b4", size = 346091 },
-]
 
 [package.optional-dependencies]
 all = [
     { name = "cartopy" },
     { name = "defusedxml" },
+    { name = "dill" },
     { name = "esi-core" },
     { name = "esi-utils-colors" },
     { name = "esi-utils-geo" },
@@ -2597,6 +2604,88 @@ all = [
     { name = "simplekml" },
     { name = "usgs-strec" },
 ]
+
+[package.metadata]
+requires-dist = [
+    { name = "black", marker = "extra == 'dev'", specifier = ">=21" },
+    { name = "build", marker = "extra == 'build'" },
+    { name = "build", marker = "extra == 'dev'", specifier = ">=0.7.0" },
+    { name = "cartopy", marker = "extra == 'mapping'", specifier = ">=0.22.0" },
+    { name = "cartopy", marker = "extra == 'model'", specifier = ">=0.22.0" },
+    { name = "cartopy", marker = "extra == 'uncertaintymaps'", specifier = ">=0.22.0" },
+    { name = "configobj", specifier = ">=5.0.8" },
+    { name = "deepdiff", marker = "extra == 'dev'", specifier = ">=6.7.1" },
+    { name = "defusedxml", marker = "extra == 'assemble'", specifier = ">=0.7.1" },
+    { name = "defusedxml", marker = "extra == 'augment'", specifier = ">=0.7.1" },
+    { name = "dill", marker = "extra == 'mapping'" },
+    { name = "esi-core", marker = "extra == 'gridxml'", specifier = ">=1.0.2" },
+    { name = "esi-core", marker = "extra == 'kml'", specifier = ">=1.0.2" },
+    { name = "esi-core", marker = "extra == 'model'", specifier = ">=1.0.2" },
+    { name = "esi-core", marker = "extra == 'shape'", specifier = ">=1.0.2" },
+    { name = "esi-releases", marker = "extra == 'build'" },
+    { name = "esi-releases", marker = "extra == 'dev'" },
+    { name = "esi-shakelib", specifier = ">=1.1.1" },
+    { name = "esi-utils-colors", marker = "extra == 'kml'", specifier = ">=1.0.3" },
+    { name = "esi-utils-colors", marker = "extra == 'mapping'", specifier = ">=1.0.3" },
+    { name = "esi-utils-colors", marker = "extra == 'shape'", specifier = ">=1.0.3" },
+    { name = "esi-utils-colors", marker = "extra == 'uncertaintymaps'", specifier = ">=1.0.3" },
+    { name = "esi-utils-geo", marker = "extra == 'mapping'", specifier = ">=0.9.2" },
+    { name = "esi-utils-geo", marker = "extra == 'uncertaintymaps'", specifier = ">=0.9.2" },
+    { name = "esi-utils-gmice", marker = "extra == 'mapping'", specifier = ">=1.0" },
+    { name = "esi-utils-gmice", marker = "extra == 'uncertaintymaps'", specifier = ">=1.0" },
+    { name = "esi-utils-textformat", marker = "extra == 'mapping'", specifier = ">=1.0" },
+    { name = "esi-utils-textformat", marker = "extra == 'uncertaintymaps'", specifier = ">=1.0" },
+    { name = "esi-utils-transfer", marker = "extra == 'transfer-email'", specifier = ">=0.1.2" },
+    { name = "esi-utils-transfer", marker = "extra == 'transfer-pdl'", specifier = ">=0.1.2" },
+    { name = "esi-utils-transfer", marker = "extra == 'transfer-scp'", specifier = ">=0.1.2" },
+    { name = "fiona", marker = "extra == 'contour'", specifier = ">=1.9.4.post1" },
+    { name = "fiona", marker = "extra == 'kml'", specifier = ">=1.9.4.post1" },
+    { name = "fiona", marker = "extra == 'model'", specifier = ">=1.9.4.post1" },
+    { name = "fiona", marker = "extra == 'shape'", specifier = ">=1.9.4.post1" },
+    { name = "flake8", marker = "extra == 'dev'", specifier = ">=3.9" },
+    { name = "gmpacket", marker = "extra == 'assemble'", specifier = ">=0.1.2" },
+    { name = "gmpacket", marker = "extra == 'augment'", specifier = ">=0.1.2" },
+    { name = "h5py", specifier = ">=3.8.0" },
+    { name = "importlib-resources", specifier = ">=6.0.0" },
+    { name = "ipython", marker = "extra == 'dev'", specifier = ">=7.26" },
+    { name = "lxml", marker = "extra == 'kml'" },
+    { name = "mapio", marker = "extra == 'assemble'", specifier = ">=0.8.8" },
+    { name = "mapio", marker = "extra == 'gridxml'", specifier = ">=0.8.8" },
+    { name = "mapio", marker = "extra == 'kml'", specifier = ">=0.8.8" },
+    { name = "mapio", marker = "extra == 'mapping'", specifier = ">=0.8.8" },
+    { name = "mapio", marker = "extra == 'model'", specifier = ">=0.8.8" },
+    { name = "mapio", marker = "extra == 'raster'", specifier = ">=0.8.8" },
+    { name = "mapio", marker = "extra == 'uncertaintymaps'", specifier = ">=0.8.8" },
+    { name = "matplotlib", marker = "extra == 'mapping'", specifier = ">=3.7.1" },
+    { name = "matplotlib", marker = "extra == 'plotregr'", specifier = ">=3.7.1" },
+    { name = "matplotlib", marker = "extra == 'uncertaintymaps'", specifier = ">=3.7.1" },
+    { name = "matplotlib", marker = "extra == 'xtestimage'", specifier = ">=3.7.1" },
+    { name = "matplotlib", marker = "extra == 'xtestplot'", specifier = ">=3.7.1" },
+    { name = "matplotlib", marker = "extra == 'xtestplot-multi'", specifier = ">=3.7.1" },
+    { name = "matplotlib", marker = "extra == 'xtestplot-spectra'", specifier = ">=3.7.1" },
+    { name = "openpyxl", marker = "extra == 'dyfi'" },
+    { name = "pandas", marker = "extra == 'assemble'", specifier = ">=2.0.2" },
+    { name = "pandas", marker = "extra == 'dyfi'", specifier = ">=2.0.2" },
+    { name = "pillow", marker = "extra == 'kml'", specifier = ">=10.0.0" },
+    { name = "pytest", marker = "extra == 'test'", specifier = ">=6.2" },
+    { name = "pytest-cov", marker = "extra == 'test'", specifier = ">=2.12" },
+    { name = "rasterio", marker = "extra == 'mapping'" },
+    { name = "rasterio", marker = "extra == 'uncertaintymaps'" },
+    { name = "scikit-image", marker = "extra == 'shape'" },
+    { name = "scipy", marker = "extra == 'coverage'" },
+    { name = "scipy", marker = "extra == 'kml'" },
+    { name = "scipy", marker = "extra == 'mapping'" },
+    { name = "scipy", marker = "extra == 'uncertaintymaps'" },
+    { name = "shakemap-modules", extras = ["assemble", "associate", "augment", "contour", "coverage", "dyfi", "exception", "gridxml", "history", "info", "kml", "mapping", "model", "plotregr", "raster", "rupture", "save", "shape", "sleep", "sm-select", "stations", "transfer-email", "transfer-pdl", "transfer-scp", "uncertaintymaps", "xtestimage", "xtestplot", "xtestplot-multi", "xtestplot-spectra"], marker = "extra == 'all'" },
+    { name = "shapely", marker = "extra == 'kml'" },
+    { name = "shapely", marker = "extra == 'model'" },
+    { name = "simplekml", marker = "extra == 'kml'", specifier = ">=1.3.6" },
+    { name = "twine", marker = "extra == 'build'" },
+    { name = "usgs-strec", marker = "extra == 'sm-select'", specifier = ">=2.2.3" },
+    { name = "vcrpy", marker = "extra == 'dev'", specifier = ">=5.1.0" },
+    { name = "vcrpy", marker = "extra == 'test'", specifier = ">=5.1.0" },
+]
+provides-extras = ["assemble", "associate", "augment", "contour", "coverage", "dyfi", "exception", "gridxml", "history", "info", "kml", "mapping", "model", "plotregr", "raster", "rupture", "save", "shape", "sleep", "sm-select", "stations", "transfer-email", "transfer-pdl", "transfer-scp", "uncertaintymaps", "xtestimage", "xtestplot", "xtestplot-multi", "xtestplot-spectra", "dev", "test", "build", "all"]
 
 [[package]]
 name = "shapely"
