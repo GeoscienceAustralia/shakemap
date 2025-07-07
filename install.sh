@@ -3,6 +3,8 @@
 # constants
 # DEFAULT_PYVER=3.12
 
+VENV=shakemap
+
 usage()
 {
 #    echo "Usage: install.sh  [ -p Python version (3.12) ]
