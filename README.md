@@ -33,6 +33,7 @@ The primary host for the development of this software is on a gitlab instance he
    *USGS Software Release*. https://doi.org/10.5066/P97FHE0I
 
 **Journal Articles**
+ - Engler, Davis T., C. Bruce Worden, Eric M. Thompson, Kishor S. Jaiswal (2022). Partitioning Ground Motion Uncertainty When Conditioned on Station Data. Bull. Seism. Soc. Am. 2022; doi: https://doi.org/10.1785/0120210177
  - Wald, D. J. (2023). Alerting the globe of consequential earthquakes. *Perspectives of Earth and Space Scientists*. https://doi.org/10.1029/2022CN000200
  - Wald, D. J., Worden, C. B., Thompson, E. M., & Hearne, M. (2021). ShakeMap operations, procedures, and policies. *Earthquake Spectra*, 38(1), 756–777. https://doi.org/10.1177/87552930211030298
  - Wald, D. J., Quitoriano, V., Heaton, T. H., Kanamori, H., Scrivner, C. W., & Worden, C. B. (1999). TriNet "ShakeMaps": Rapid genera- tion of peak ground motion and intensity maps for earthquakes in southern California. *Earthquake Spectra*, 15(3), 537–556. https://doi.org/10.1193/1.1586057
