@@ -25,13 +25,6 @@ The ShakeMap documentation is located here:
 The primary host for the development of this software is on a gitlab instance here:
  - https://code.usgs.gov/ghsc/esi/shakemap
 
-One drawback of the gitlab system is that it is more cumbersome for users to create an 
-account and post issues than in github. If you would like to be able to participate on
-issues in gitlab, please send us a request to register you as a user.
-
-Alternatively, if you have a github account, you can immediately post issues to the 
-mirrored of this repository on github here:
- - https://github.com/DOI-USGS/ghsc-esi-shakemap
 
 # References
 
