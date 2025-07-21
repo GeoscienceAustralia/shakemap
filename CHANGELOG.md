@@ -1,5 +1,7 @@
 ## main
 
+    - Update receive_origins_gsm.py to only use reviewed origins.                  
+    - Another small fix to the installation docs.
     - Fix the vs30 and topo docs.
     - Eric's fix to the install docs.
     - Mike's fixes to install.sh.
