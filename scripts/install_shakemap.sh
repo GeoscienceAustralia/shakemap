@@ -122,6 +122,21 @@ update_conda() {
 
 }
 
+install_conda_lock() {
+    # Check if conda-lock is installed in base environment
+    conda list -n base conda-lock > /dev/null 2>&1
+    if [ $? -ne 0 ]; then
+        echo "Installing conda-lock in base environment..."
+        conda install -n base -c conda-forge conda-lock -y >> ${logfile} 2>&1
+        if [ $? -ne 0 ]; then
+            echo "Failed to install conda-lock. Exiting."
+            exit 1
+        fi
+    else
+        echo "conda-lock is already installed."
+    fi
+}
+
 
 get_python_version() {
     directory=$1
@@ -174,10 +189,10 @@ while getopts ":v:d:e:lh" opt; do
       echo ""
       usage_string=$(cat <<EOF
 Usage: $0
-\t[-v Specify shakemap_version ("i.e., "v4.4.6")]
+\t[-v Specify shakemap_version (i.e., v4.4.6)]
 \t[-d directory where log file will be written (defaults to current directory)]
 \t[-l list recent tags and exit]
-\t[-e Set conda environment (defaults to "${VENV})"]
+\t[-e Set conda environment (defaults to "${VENV}")]
 EOF
 )
       echo -e "${usage_string}"
@@ -249,40 +264,55 @@ conda config --set solver libmamba &>/dev/null
 echo "Activating base virtual environment..."
 activate_base
 
+# Install conda-lock if needed
+install_conda_lock
+
 # Remove existing shakemap environment if it exists
 echo "Remove existing ${VENV} environment if it exists..."
-${install_pgm} remove -y -n $VENV --all >> ~/shakemap_install.log 2>&1
-${install_pgm} clean -y --all >> ~/shakemap_install.log 2>&1
-
+${install_pgm} remove -y -n $VENV --all >> ${logfile} 2>&1
+${install_pgm} clean -y --all >> ${logfile} 2>&1
 
 # Set up a non-interactive matplotlib backend 
 echo "Configuring the plotting library to only render figures to file output..."
 setup_matplotdir
 
-# Get the conda input yaml file appropriate for user's platform
-input_yaml_file="${TEMPD}/shakemap/$(get_yaml)"
+# Check if conda-lock.yml exists in the cloned repository
+lockfile="${TEMPD}/shakemap/conda-lock.yml"
 
-if [ -f "$input_yaml_file" ]; then
-    echo "YAML file to use for installing conda dependencies: ${input_yaml_file}"
+if [ -f "$lockfile" ]; then
+    echo "Lock file found: ${lockfile}"
+    echo "Installing environment from lock file..."
+    conda-lock install --name $VENV ${lockfile} >> ${logfile} 2>&1
+    
+    if [ $? -ne 0 ]; then
+        echo "Failed to create environment from lock file. Exiting."
+        exit 1
+    fi
 else
-    echo "File $input_yaml_file does not exist or is not a regular file."
-    exit 1
+    echo "Lock file not found, falling back to YAML method..."
+    # Get the conda input yaml file appropriate for user's platform
+    input_yaml_file="${TEMPD}/shakemap/$(get_yaml)"
+    
+    if [ -f "$input_yaml_file" ]; then
+        echo "YAML file to use for installing conda dependencies: ${input_yaml_file}"
+    else
+        echo "File $input_yaml_file does not exist or is not a regular file."
+        exit 1
+    fi
+    
+    # Install the virtual environment
+    echo "Creating new environment from environment file: ${input_yaml_file}..."
+    ${install_pgm} env create -f ${input_yaml_file} -n $VENV >> ${logfile} 2>&1
+    
+    if [ $? -ne 0 ]; then
+        echo "Failed to create conda environment. Resolve any conflicts, then try again."
+        exit 1
+    fi
 fi
-
-# Install the virtual environment
-echo "Creating new environment from environment file: ${input_yaml_file}..."
-${install_pgm} env create -f ${input_yaml_file} -n $VENV >> ~/shakemap_install.log 2>&1
 
 # Activate the new environment
 echo "Activating the $VENV virtual environment..."
 ${install_pgm} activate $VENV
-
-# Bail out at this point if the conda create command fails.
-# Clean up zip files we've downloaded
-if [ $? -ne 0 ]; then
-    echo "Failed to create conda environment.  Resolve any conflicts, then try again."
-    exit 1
-fi
 
 cd $TEMPD/shakemap
 
