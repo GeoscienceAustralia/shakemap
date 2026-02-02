@@ -27,9 +27,9 @@ activate_base() {
     # whatever it does, it is crucially important for being able to activate a conda environment
     # inside a shell script.
     eval "$(conda shell.bash hook)"                                                
-    ${install_pgm} activate base
+    conda activate base
     if [ $? -ne 0 ]; then
-        "Failed to activate conda base environment. Exiting."
+        echo "Failed to activate conda base environment. Exiting."
         exit 1
     fi
 }
@@ -123,11 +123,9 @@ update_conda() {
 }
 
 install_conda_lock() {
-    # Check if conda-lock is installed in base environment
-    conda list -n base conda-lock > /dev/null 2>&1
-    if [ $? -ne 0 ]; then
+    if ! conda list -n base | grep -q '^conda-lock '; then
         echo "Installing conda-lock in base environment..."
-        conda install -n base -c conda-forge conda-lock -y >> ${logfile} 2>&1
+        conda install -n base -c conda-forge conda-lock -y >> "${logfile}" 2>&1
         if [ $? -ne 0 ]; then
             echo "Failed to install conda-lock. Exiting."
             exit 1
@@ -136,7 +134,6 @@ install_conda_lock() {
         echo "conda-lock is already installed."
     fi
 }
-
 
 get_python_version() {
     directory=$1
@@ -253,16 +250,16 @@ fi
 echo "Checking to see if conda is installed on the system, installing from miniforge if not..."
 install_conda
 
+# activate the base environment
+echo "Activating base virtual environment..."
+activate_base
+
 # update conda tool
 update_conda
 
 # Set libmamba as solver
 echo "Configuring the package dependency solver to be libmamba..."
 conda config --set solver libmamba &>/dev/null
-
-# activate the base environment
-echo "Activating base virtual environment..."
-activate_base
 
 # Install conda-lock if needed
 install_conda_lock
