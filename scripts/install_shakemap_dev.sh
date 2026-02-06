@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
 
+# Get the directory where this script is located
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+# Get the parent directory (main repo directory)
+REPO_DIR="$( cd "${SCRIPT_DIR}/.." && pwd )"
+
+
 unamestr=`uname`
 if [ "$unamestr" == 'Linux' ]; then
     prof=~/.bashrc
@@ -21,9 +27,9 @@ if [ "$unamestr" == 'FreeBSD' ] || [ "$unamestr" == 'Darwin' ]; then
     # This is motivated by the mysterios pyproj/rasterio error and incorrect results
     # that only happen on ARM macs. 
     # https://github.com/conda-forge/pyproj-feedstock/issues/156
-    input_yaml_file=osx_environment.yml
+    input_yaml_file="${REPO_DIR}/osx_environment.yml"
 else
-    input_yaml_file=linux_environment.yml
+    input_yaml_file="${REPO_DIR}/linux_environment.yml"
 fi
 
 
@@ -184,13 +190,13 @@ fi
 if $developer; then
     echo "Installing shakemap with developer tools."
     conda install mathjax -y
-    if ! pip install -e '.[dev,test,doc]' ; then
+    if ! pip install -e "${REPO_DIR}[dev,test,doc]" ; then
         echo "Installation of shakemap failed."
         exit 1
     fi
 else
     echo "Installing shakemap."
-    if ! pip install -e . ; then
+    if ! pip install -e "${REPO_DIR}" ; then
         echo "Installation of shakemap failed."
         exit 1
     fi
