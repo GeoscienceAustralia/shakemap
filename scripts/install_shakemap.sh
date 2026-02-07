@@ -64,18 +64,22 @@ setup_matplotdir() {
         echo "NOTE: A non-interactive matplotlib backend (Agg) has been set for this user."
     elif grep -Fxq "backend : Agg" $matplotlibrc ; then
         :
-    elif [ ! grep -Fxq "backend" $matplotlibrc ]; then
+    elif ! grep -Fxq "backend" $matplotlibrc ; then
         echo "backend : Agg" >> $matplotlibrc
         echo "NOTE: A non-interactive matplotlib backend (Agg) has been set for this user."
     else
-        sed -i '' 's/backend.*/backend : Agg/' $matplotlibrc
+        if [[ "$unamestr" == "Darwin" ]]; then
+            sed -i '' 's/backend.*/backend : Agg/' $matplotlibrc
+        else
+            sed -i 's/backend.*/backend : Agg/' $matplotlibrc
+        fi
         echo "NOTE: $matplotlibrc has been changed to set 'backend : Agg'"
     fi
 }
 
 install_conda() {
     # Is conda installed?
-    conda --version >> /dev/null
+    conda --version >> /dev/null 2>&1
     if [ $? -ne 0 ]; then
         echo "No conda detected, installing from miniforge..."
         command -v curl >/dev/null 2>&1 || { echo >&2 "Script requires curl but it's not installed. Aborting."; exit 1; }
@@ -95,7 +99,8 @@ install_conda() {
         fi
         
         $HOME/miniforge/bin/conda init bash &>/dev/null
-        . $HOME/.bashrc
+        # Source the appropriate profile for the OS (set by set_profile function)
+        source $prof
 
         # remove the shell script
         rm miniforge.sh
@@ -123,16 +128,31 @@ update_conda() {
 }
 
 install_conda_lock() {
-    if ! conda list -n base | grep -q '^conda-lock '; then
-        echo "Installing conda-lock in base environment..."
-        conda install -n base -c conda-forge conda-lock -y >> "${logfile}" 2>&1
+    # Use a dedicated environment for conda-lock to avoid polluting base
+    CONDA_LOCK_ENV="conda-lock"
+    
+    if ! conda env list | grep -q "^${CONDA_LOCK_ENV} "; then
+        echo "Creating dedicated environment for conda-lock..."
+        conda create -n ${CONDA_LOCK_ENV} -c conda-forge conda-lock -y >> "${logfile}" 2>&1
         if [ $? -ne 0 ]; then
-            echo "Failed to install conda-lock. Exiting."
+            echo "Failed to create conda-lock environment. Exiting."
             exit 1
         fi
     else
-        echo "conda-lock is already installed."
+        echo "conda-lock environment already exists."
+        # Verify conda-lock is actually installed there
+        if ! conda list -n ${CONDA_LOCK_ENV} | grep -q '^conda-lock '; then
+            echo "Repairing conda-lock environment..."
+            conda install -n ${CONDA_LOCK_ENV} -c conda-forge conda-lock -y >> "${logfile}" 2>&1
+            if [ $? -ne 0 ]; then
+                echo "Failed to repair conda-lock environment. Exiting."
+                exit 1
+            fi
+        fi
     fi
+    
+    # Force conda-lock to use conda instead of mamba (conda 23.10+ has libmamba built-in)
+    export CONDA_LOCK_NO_MAMBA=1
 }
 
 get_python_version() {
@@ -257,9 +277,12 @@ activate_base
 # update conda tool
 update_conda
 
-# Set libmamba as solver
-echo "Configuring the package dependency solver to be libmamba..."
-conda config --set solver libmamba &>/dev/null
+# Remove standalone mamba if present (conda 23.10+ has libmamba built-in)
+echo "Checking for standalone mamba installation..."
+if conda list -n base | grep -q '^mamba '; then
+    echo "Removing standalone mamba (conda 23.10+ already includes libmamba solver)..."
+    conda remove -n base mamba -y >> ${logfile} 2>&1
+fi
 
 # Install conda-lock if needed
 install_conda_lock
@@ -267,7 +290,7 @@ install_conda_lock
 # Remove existing shakemap environment if it exists
 echo "Remove existing ${VENV} environment if it exists..."
 ${install_pgm} remove -y -n $VENV --all >> ${logfile} 2>&1
-${install_pgm} clean -y --all >> ${logfile} 2>&1
+${install_pgm} clean -y --tarballs >> ${logfile} 2>&1
 
 # Set up a non-interactive matplotlib backend 
 echo "Configuring the plotting library to only render figures to file output..."
@@ -279,11 +302,42 @@ lockfile="${TEMPD}/shakemap/conda-lock.yml"
 if [ -f "$lockfile" ]; then
     echo "Lock file found: ${lockfile}"
     echo "Installing environment from lock file..."
-    conda-lock install --name $VENV ${lockfile} >> ${logfile} 2>&1
+    CONDA_LOCK_NO_MAMBA=1 conda run -n conda-lock conda-lock install --name $VENV ${lockfile} >> ${logfile} 2>&1
     
     if [ $? -ne 0 ]; then
-        echo "Failed to create environment from lock file. Exiting."
-        exit 1
+        echo "Failed to create environment from lock file."
+        
+        if [ "$unamestr" == 'Linux' ] && grep -q "manylinux.*is not a supported wheel" ${logfile}; then
+            echo ""
+            echo "Minimum glibc version required: 2.28"
+            echo ""
+            echo "Falling back to YAML environment file..."
+            echo ""
+            
+            echo "Cleaning up partial environment..."
+            CONDA_ROOT=$(conda info --base)
+            if [ -d "${CONDA_ROOT}/envs/${VENV}" ]; then
+                rm -rf "${CONDA_ROOT}/envs/${VENV}"
+            fi
+            
+            input_yaml_file="${TEMPD}/shakemap/$(get_yaml)"
+            
+            if [ -f "$input_yaml_file" ]; then
+                echo "Installing from ${input_yaml_file}..."
+                ${install_pgm} env create -f ${input_yaml_file} -n $VENV >> ${logfile} 2>&1
+                
+                if [ $? -ne 0 ]; then
+                    echo "Failed to create conda environment from YAML. Check ${logfile} for details."
+                    exit 1
+                fi
+            else
+                echo "No fallback YAML file found. Exiting."
+                exit 1
+            fi
+        else
+            echo "Check ${logfile} for details."
+            exit 1
+        fi
     fi
 else
     echo "Lock file not found, falling back to YAML method..."
@@ -309,32 +363,48 @@ fi
 
 # Activate the new environment
 echo "Activating the $VENV virtual environment..."
-${install_pgm} activate $VENV
+conda activate $VENV
+if [ $? -ne 0 ]; then
+    echo "Failed to activate ${VENV} environment. Exiting."
+    exit 1
+fi
 
 cd $TEMPD/shakemap
 
 echo "Installing necessary Python build tool..."
-pip install build >> ~/shakemap_install.log 2>&1
+pip install build >> ${logfile} 2>&1
 
 echo "Compiling shakemap into a 'wheel' file for easier installation..."
-python -m build >> ~/shakemap_install.log 2>&1
+python -m build >> ${logfile} 2>&1
 
 wheelfile=`find . -name '*.whl'`
 
 echo "Using 'pip' to install shakemap from wheel file ${wheelfile}..."
-pip install $wheelfile >> ~/shakemap_install.log 2>&1
+pip install $wheelfile | tee -a ${logfile}
 
 echo "Installation complete."
 echo ""
-echo "Activate the ${VENV} conda environment with the commands:"
-echo "~/miniforge/bin/conda init bash"
-echo "source ~/.bashrc"
+echo "Activate the ${VENV} conda environment:"
+echo ""
+echo "If this is your first time using conda:"
+echo "  ~/miniforge/bin/conda init bash"
+echo "  # Then run: source ~/.bashrc (Linux) or source ~/.bash_profile (macOS)"
+echo ""
 echo "conda activate ${VENV}"
 echo "sm_profile -c <desired_profile_name> (follow the prompts) OR"
 echo "sm_profile -c <desired_profile_name> -a (installs everything automatically)"
 echo "Check that the installed version of shakemap matches the input:"
 echo "'shake -v' - this should return 'ShakeMap version ${version})'"
 
+# Clean up package cache now that installation is complete
+echo "Cleaning conda package cache..."
+conda clean -y --tarballs >> ${logfile} 2>&1
 
+# Remove temporary conda-lock environment
+echo "Removing temporary conda-lock environment..."
+conda env remove -n conda-lock -y >> ${logfile} 2>&1
+
+echo ""
+echo "Installation and cleanup complete."
 # When the script ends (reaches this point or exits due to an error), 
 # the trap will execute and remove $TEMPD and all its contents recursively.
