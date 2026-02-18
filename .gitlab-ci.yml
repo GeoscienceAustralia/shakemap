@@ -1,8 +1,6 @@
 # Need to use Conda to build Shakemap, pull the Docker image
 default:
   image: code.usgs.gov:5001/devops/images/usgs/python:3.12-build
-  tags:
-    - build
 
   before_script:
     - python --version
