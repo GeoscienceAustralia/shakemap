@@ -382,6 +382,9 @@ wheelfile=`find . -name '*.whl'`
 echo "Using 'pip' to install shakemap from wheel file ${wheelfile}..."
 pip install $wheelfile | tee -a ${logfile}
 
+echo "Install obspy from main until the next release fixes the pkg_resources error"
+pip install git+https://github.com/obspy/obspy.git
+
 echo "Installation complete."
 echo ""
 echo "Activate the ${VENV} conda environment:"
