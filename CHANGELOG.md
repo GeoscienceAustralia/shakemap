@@ -1,5 +1,8 @@
 ## main
 
+
+## v4.4.7 / 2025-02-25
+    - Update to shakemap-modules 1.1.15
     - Moved install scripts into scripts folder. 
       - There is a user install script (conda-lock) and a development install script (same as before).
       - ObsPy will install from git master branch to avoid setuptools error
