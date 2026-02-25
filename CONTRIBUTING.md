@@ -52,7 +52,7 @@ DOCS: [one line description]
 ```
 
 We use the set of commit types from the [angular][9] project:
-* **BUILD**: Changes that affect the build system or external dependencies (e.g., pyrpoject.toml)
+* **BUILD**: Changes that affect the build system or external dependencies (e.g., pyproject.toml)
 * **CI**: Changes to our CI configuration files and scripts (e.g., .gitlab-ci.yml)
 * **DOCS**: Documentation only changes
 * **FEAT**: A new feature
@@ -80,24 +80,88 @@ Common reasons to rebase include:
 
 ## Releases
 
-1. Create a release candidate branch with a name related to the release version like `rc-v121`.
-2. Update version in `pyproject.toml`.
-3. Add new section to `code.json`; update "metadataLastUpdated" date and the urls that include the version.
-4. Update `CHANGELOG.md` to include the changes for this version. The goal is for the changelog to be kept up to date with each merge request, so this step should largely consist of creating a new section for this release and moving content into it from "main". 
-5. Rebuild docs (see instructions below for more details).
-6. Create tag locally with
-   ```
-   git tag v1.2.1
-   ```
-7. Push tag to upstream/main
-   ```
-   git push origin v1.2.1
-   ```
-8. Create release from tag in gitlab. Give it a release title like `v1.2.1`.
-9. Copy/paste the relevant part of the changelog into the "describe this release" section.
+### Step 1: Release Upstream Packages to PyPI
 
-Note that the command line program `repotag` from the `esi-utils-io` repository will
-help automate these steps. 
+If any upstream packages have changed, release them in order to PyPI:
+
+1. **`esi-utils-*`**
+2. **`esi-shakelib`**
+3. **`shakemap-modules`**
+
+### Step 2: Update `pyproject.toml` Dependency Versions
+
+In `pyproject.toml`, update the minimum version for any dependencies that were
+bumped in Step 1. Commit this change before regenerating the lock file.
+
+### Step 3: Update the Conda Lock File
+
+The `install_shakemap.sh` script creates a `conda-lock` conda environment with the `conda-lock` tool.
+
+#### Option A: Update Specific Packages Only
+
+Do this if only pip packages (`shakemap-modules`, etc) are changed.
+
+```bash
+conda activate conda-lock
+conda-lock lock \
+    --lockfile conda-lock.yml \
+    --update shakemap-modules \
+    --update esi-shakelib
+```
+
+#### Option B: Create New Lock File
+
+Major changes (a new Python version) require generating a new lock file.
+Note you must produce the `environment.yml` that includes the dependencies first.
+
+```bash
+conda activate conda-lock
+conda-lock lock \
+    -f environment.yml \
+    --lockfile conda-lock.yml \
+    -p linux-64 \
+    -p osx-arm64
+```
+
+### Step 4: Commit the Lock File
+
+Commit the updated `conda-lock.yml` to the repo.
+
+### Step 5: Prepare the Release Candidate Branch
+
+1. Create a release candidate branch with a name related to the release version,
+   e.g., `v1.2.1.rc0`.
+2. Update the package version in `pyproject.toml`.
+3. Update `code.json` using the `esi-releases` package. For example, to increment
+   the minor version:
+   ```
+   releases minor
+   ```
+   Options are `major`, `minor`, and `patch`.
+4. Update `CHANGELOG.md` to include the changes for this version. The goal is for
+   the changelog to be kept up to date with each merge request, so this step should
+   largely consist of creating a new section for this release and moving content
+   into it from "main".
+5. Rebuild docs if relevant (see instructions below for more details).
+6. Commit all changes to the release candidate branch and push to your origin:
+   ```
+   git push origin v1.2.1.rc0
+   ```
+7. Create a merge request into upstream main, merge it, and rebase locally.
+8. Create an annotated tag from main and push it upstream:
+   ```
+   git tag -a v1.2.1 -m "Version 1.2.1"
+   git push upstream v1.2.1
+   ```
+   Notes on tag naming:
+   - Tag names cannot contain a hyphen.
+   - If the tag name ends with `dev`, it will be uploaded to PyPI as a pre-release
+     version, meaning it will not be installed unless the user specifies the exact
+     version explicitly.
+9. Create a release from the tag in GitLab. Give it a release title like `v1.2.1`.
+10. Copy/paste the relevant part of the changelog into the "describe this release"
+    section.
+
 
 ## Build Documentation
 
@@ -115,7 +179,7 @@ cd doc_source/
 ./makedocs.sh
 ```
 
-Note that the script includes the follow arguments:
+Note that the script includes the following arguments:
  - `rebuild` - Build documentation from a clean starting point.
  - `update` - Incremental build of the documentation. No cleaning.
  - `clean_data` - Remove all temporary data files generated when building the documentation.
