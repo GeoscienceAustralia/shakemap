@@ -1,6 +1,11 @@
 ## main
 
 
+## v4.4.8 / 2025-03-02
+    - Update install scripts to be more compatible with AWS ImageBuilder install
+      - No longer installing ObsPy from main repo
+      - Added an option to keep the source folder so that pytests can be run
+
 ## v4.4.7 / 2025-02-25
     - Update to shakemap-modules 1.1.15
     - Moved install scripts into scripts folder. 
