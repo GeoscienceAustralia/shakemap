@@ -5,6 +5,8 @@ default:
     - build
 
   before_script:
+    - nproc
+    - free -h
     - python --version
     - export PATH="/home/usgs-user/.local/bin:$PATH"
     - mini_conda_url=https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh
