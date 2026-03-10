@@ -1,6 +1,11 @@
 ## main
 
 
+## v4.4.9 / 2025-03-10
+    - Update to shakemap-modules 1.1.16
+    - Regenerated conda-lock file
+    - Updated release instructions for creating the conda lock file
+
 ## v4.4.8 / 2025-03-02
     - Update install scripts to be more compatible with AWS ImageBuilder install
       - No longer installing ObsPy from main repo
