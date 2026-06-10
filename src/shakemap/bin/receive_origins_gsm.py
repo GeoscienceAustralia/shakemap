@@ -17,9 +17,6 @@ import time
 from datetime import datetime
 
 # third-party imports
-
-# local imports
-import shakemap.utils.queue as queue
 from esi_utils_comcat.query import GeoServe
 from esi_utils_geo.compass import get_compass_dir_azimuth
 from esi_utils_rupture import constants
@@ -27,6 +24,9 @@ from shakemap_modules.utils.comcat import get_detail_json
 from shakemap_modules.utils.config import get_config_paths
 from shakemap_modules.utils.logging import get_generic_logger
 from shakemap_modules.utils.utils import get_network_name
+
+# local imports
+from shakemap.utils import queue
 
 LOGFILE = "origins.log"
 
@@ -52,11 +52,22 @@ def get_parser():
         help="Event type (earthquake, explosion, etc.)",
     )
     parser.add_argument(
+        "--property-review-status",
+        nargs="*",
+        help="Event review status ('automatic', 'reviewed')",
+    )
+    parser.add_argument(
         "--property-eventsourcecode", help="Event source code (i.e., 2008abcd"
     )
-    parser.add_argument("--property-magnitude", type=float, help="Event magnitude")
-    parser.add_argument("--property-latitude", type=float, help="Event latitude")
-    parser.add_argument("--property-longitude", type=float, help="Event longitude")
+    parser.add_argument(
+        "--property-magnitude", type=float, help="Event magnitude"
+    )
+    parser.add_argument(
+        "--property-latitude", type=float, help="Event latitude"
+    )
+    parser.add_argument(
+        "--property-longitude", type=float, help="Event longitude"
+    )
     parser.add_argument("--property-depth", type=float, help="Event depth")
     parser.add_argument("--property-eventtime", help="Event time")
 
@@ -72,7 +83,7 @@ def main():
     args, unknown = parser.parse_known_args(clean_argv)
     install_path, data_path = get_config_paths()
     if not os.path.isdir(data_path):
-        print(f"{data_path} is not a valid directory.")
+        logger.info(f"{data_path} is not a valid directory.")
         sys.exit(1)
 
     config = queue.get_config(install_path)
@@ -141,7 +152,9 @@ def main():
         else:
             break
     if fails == 3:
-        logger.warn(f"Unable to retrieve event data from comcat for event {eventid}")
+        logger.warn(
+            f"Unable to retrieve event data from comcat for event {eventid}"
+        )
         dt = datetime.strptime(args.property_eventtime, constants.TIMEFMT)
         event_age = (datetime.utcnow() - dt).total_seconds()
         if event_age > 86400:
@@ -158,6 +171,16 @@ def main():
         # don't do that anymore.
         pass
 
+    #
+    # Only run events that have been reviewed by the network operator
+    # (this restriction is subject to change)
+    #
+    if args.property_review_status[0] != 'reviewed':
+        logger.info(
+            "Event id %s is not reviewed; (review status=%s)"
+            % (eventid, args.property_review_status[0])
+        )
+        sys.exit(0)
     # We've weeded out the messages we don't want, so construct an event
     # dictionary and send it to the queue
     if not args.property_title:
@@ -194,7 +217,9 @@ def main():
                     azimuth = azimuth - 360
                 location = "%d km %s of %s, %s, %s" % (
                     int(props["distance"]),
-                    get_compass_dir_azimuth(azimuth, resolution="meteorological"),
+                    get_compass_dir_azimuth(
+                        azimuth, resolution="meteorological"
+                    ),
                     props["name"],
                     props["admin1_name"],
                     country,
@@ -203,7 +228,9 @@ def main():
                 region = gs.getRegions()
                 if region is not None:
                     try:
-                        location = region["fe"]["features"][0]["properties"]["name"]
+                        location = region["fe"]["features"][0]["properties"][
+                            "name"
+                        ]
                     except KeyError:
                         location = ""
                     except IndexError:
@@ -226,6 +253,12 @@ def main():
         action = "Event added"
     else:
         action = "Origin updated"
+    if args.property_review_status == "reviewed":
+        reviewed = "true"
+    elif args.property_review_status == "automatic":
+        reviewed = "false"
+    else:
+        reviewed = "unknown"
     event = {
         "id": eventid,
         "netid": args.source,
@@ -238,6 +271,7 @@ def main():
         "locstring": location,
         "alt_eventids": eventid,
         "action": action,
+        "reviewed": reviewed,
     }
     logger.info(f"Sending event {eventid} to queue.")
 
