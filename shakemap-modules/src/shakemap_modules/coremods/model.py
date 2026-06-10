@@ -22,12 +22,14 @@ from time import gmtime, strftime
 import cartopy.io.shapereader as shpreader
 import fiona
 import numpy as np
+
+try:
+    _ = np.RankWarning  # will work on numpy < 2
+except AttributeError:
+    setattr(np, "RankWarning", RuntimeWarning)  # will work on numpy > 2
 import numpy.ma as ma
 import openquake.hazardlib.const as oqconst
-from openquake.hazardlib.imt import SA
-from openquake.hazardlib import imt
 import pandas as pd
-from shapely.geometry import shape
 
 # local imports
 from esi_core.shakemap.covariance_matrix import (
@@ -36,19 +38,17 @@ from esi_core.shakemap.covariance_matrix import (
 )
 from esi_core.shakemap.geodetic_distances import geodetic_distance_fast
 from esi_shakelib.directivity.rowshandel2013 import Rowshandel2013
+from esi_shakelib.ffsimmer import FFSimmer, RandomFiniteFault
+from esi_shakelib.generic_site_amplitication import GenericSiteAmplification
 from esi_shakelib.multigmpe import MultiGMPE
 from esi_shakelib.sites import Sites, addDepthParameters
 from esi_shakelib.utils.containers import ShakeMapInputContainer
 from esi_shakelib.utils.imt_string import oq_to_file
-from esi_shakelib.utils.utils import (
+from esi_shakelib.utils.utils import (  # thirty_sec_max,; thirty_sec_min,
     get_extent,
     get_shakelib_version,
-    #    thirty_sec_max,
-    #    thirty_sec_min,
 )
 from esi_shakelib.virtualipe import VirtualIPE
-from esi_shakelib.ffsimmer import FFSimmer, RandomFiniteFault
-from esi_shakelib.generic_site_amplitication import GenericSiteAmplification
 from esi_utils_io.smcontainers import ShakeMapOutputContainer
 from esi_utils_rupture import constants
 from esi_utils_rupture.distance import (
@@ -59,12 +59,15 @@ from esi_utils_rupture.distance import (
 from esi_utils_rupture.point_rupture import PointRupture
 from mapio.geodict import GeoDict
 from mapio.grid2d import Grid2D
+from openquake.hazardlib import imt
+from openquake.hazardlib.imt import SA
 from shakemap_modules.base.base import Contents, CoreModule
 from shakemap_modules.base.cli import get_module_args
 from shakemap_modules.utils.config import get_config_paths
 from shakemap_modules.utils.generic_amp import get_generic_amp_factors
 from shakemap_modules.utils.logging import get_generic_logger
 from shakemap_modules.utils.utils import get_object_from_config
+from shapely.geometry import shape
 
 # from shakemap.utils.exception import TerminateShakeMap
 
@@ -84,6 +87,10 @@ from shakemap_modules.utils.utils import get_object_from_config
 #
 SM_CONSTS = {"default_stddev_inter": 0.55, "default_stddev_inter_mmi": 0.55}
 
+# what is the distance where between-station correlation becomes minimal
+RANGE = 50  # km
+DEG2KM = 1 / 111.0  # ~1/111 decimal degree/km
+
 stddev_types = [
     oqconst.StdDev.TOTAL,
     oqconst.StdDev.INTER_EVENT,
@@ -91,6 +98,8 @@ stddev_types = [
 ]
 
 FFSIMMER_SEED = 84608478034892579362136552699077168019
+
+EARTH_RADIUS = 6371.0
 
 
 class DataFrame:
@@ -136,6 +145,7 @@ class ModelModule(CoreModule):
         no_macroseismic=False,
         no_rupture=False,
         shakemap_version=None,
+        trim_data=True,
     ):
         super(ModelModule, self).__init__(eventid, logger=logger)
         if process == "shakemap":
@@ -145,6 +155,7 @@ class ModelModule(CoreModule):
         self.no_macroseismic = no_macroseismic
         self.no_rupture = no_rupture
         self.shakemap_version = shakemap_version
+        self.trim_data = trim_data
         #
         # Set up a bunch of dictionaries that will be keyed to IMTs
         #
@@ -265,10 +276,10 @@ class ModelModule(CoreModule):
         self.do_grid = True
         self.sites_obj_out = None
         self.max_workers = None
-        self.mmi_add_uncertainty = None
-        self.mmi_sigma_hh_yd = None
-        self.mmi_c = None
-        self.mmi_sta_per_ix = None
+        self.rez_add_uncertainty = {}
+        self.rez_sigma_hh_yd = {}
+        self.rez_c = {}
+        self.rez_sta_per_ix = {}
         self.directivity = None
         self.info = {"multigmpe": {}}
         # self.rng_seed = secrets.randbits(128)
@@ -311,6 +322,16 @@ class ModelModule(CoreModule):
             "processing, ignoring any that may exist in the "
             "input directory.",
         )
+        parser.add_argument(
+            "-n",
+            "--no-trim-data",
+            action="store_true",
+            help=(
+                "Turn off automatic trimming of data "
+                "outside box defined by map extent buffered "
+                "by the range of influence expected from the data."
+            ),
+        )
         #
         # This line should be in any modules that overrides this
         # one. It will collect up everything after the current
@@ -329,6 +350,8 @@ class ModelModule(CoreModule):
             self.no_macroseismic = True
         if args.no_rupture:
             self.no_rupture = True
+        if args.no_trim_data:
+            self.trim_data = False
         return args.rem
 
     def execute(self, indir=None, outdir=None):
@@ -436,7 +459,7 @@ class ModelModule(CoreModule):
         self.rx = self.rupture_obj.getRuptureContext([self.default_gmpe])
 
         # ---------------------------------------------------------------------
-        # Add mechanism and tectonic regine to origin
+        # Add mechanism and tectonic regime to origin
         # ---------------------------------------------------------------------
         try:
             strecdata = self.ic.getStrecJson()
@@ -445,12 +468,24 @@ class ModelModule(CoreModule):
             self.origin.tectonic_region = "unknown"
             self.origin.slab_model_dip = 65.0
             self.origin.slab_model_strike = 0.0
+            self.origin.sub_interface_prob = 0.0
+            self.origin.sub_crustal_prob = 0.0
+            self.origin.sub_slab_prob = 0.0
         else:
             strec_results = json.loads(strecdata)
             self.origin.mech = strec_results["FocalMechanism"]
             self.origin.tectonic_region = strec_results["TectonicRegion"]
             self.origin.slab_model_dip = strec_results["SlabModelDip"]
             self.origin.slab_model_strike = strec_results["SlabModelStrike"]
+            self.origin.sub_interface_prob = strec_results[
+                "ProbabilitySubductionInterface"
+            ]
+            self.origin.sub_crustal_prob = strec_results[
+                "ProbabilitySubductionCrustal"
+            ]
+            self.origin.sub_slab_prob = strec_results[
+                "ProbabilitySubductionIntraslab"
+            ]
 
         # Get a set of random finite faults for FFSimmer
         if isinstance(self.rupture_obj, PointRupture):
@@ -461,12 +496,19 @@ class ModelModule(CoreModule):
                 max_strike=self.config["modeling"]["ffsim_max_strike"],
                 min_dip=self.config["modeling"]["ffsim_min_dip"],
                 max_dip=self.config["modeling"]["ffsim_max_dip"],
-                dx_min_frac=self.config["modeling"]["ffsim_dx_min_frac"],
-                dx_max_frac=self.config["modeling"]["ffsim_dx_max_frac"],
-                delta_depth=self.config["modeling"]["ffsim_delta_depth"],
+                dy_min_frac=self.config["modeling"]["ffsim_dy_min_frac"],
+                dy_max_frac=self.config["modeling"]["ffsim_dy_max_frac"],
                 ztor=self.config["modeling"]["ffsim_ztor"],
+                aspect_ratio=self.config["modeling"]["ffsim_aspect_ratio"],
+                min_sz_depth=self.config["modeling"]["ffsim_min_sz_depth"],
+                max_sz_depth=self.config["modeling"]["ffsim_max_sz_depth"],
+                area_trunc=self.config["modeling"]["ffsim_area_trunc"],
                 seed=self.rng_seed,
             )
+            # with open("rupt_quads.txt", "wt", encoding="utf-8") as f:
+            #     for irupt in self.rff.rupts:
+            #         irupt.writeTextFile(f)
+
             if self.config["modeling"]["ffsim_true_grid"] is True:
                 self.true_grid = True
 
@@ -685,6 +727,13 @@ class ModelModule(CoreModule):
                         self.gmpe_dict,
                         list(self.oqimt_dict.values()),
                     )
+                    if self.apply_gafs:
+                        for oqimt in self.oqimt_dict.values():
+                            gafs = get_generic_amp_factors(
+                                self.dx_out, str(oqimt)
+                            )
+                            if gafs is not None:
+                                griddict[oqimt]["mean"] += gafs
                 else:
                     griddict = ffsim.compute_grid(
                         vs30grid,
@@ -702,6 +751,12 @@ class ModelModule(CoreModule):
                             griddict[oqpga]["mean"],
                             oqimt,
                         )
+                        if self.apply_gafs:
+                            gafs = get_generic_amp_factors(
+                                self.dx_out, str(oqimt)
+                            )
+                            if gafs is not None:
+                                amp_grid += gafs
                         griddict[oqimt]["mean"] = amp_grid
             else:
                 shapes = []
@@ -724,11 +779,17 @@ class ModelModule(CoreModule):
                     griddict[oqimt] = {}
                     for kk, vv in ptdict[oqimt]["site"].items():
                         griddict[oqimt][kk] = vv.reshape(orig_shape)
+                        if self.apply_gafs and kk == "mean":
+                            gafs = get_generic_amp_factors(
+                                self.dx_out, str(oqimt)
+                            )
+                            if gafs is not None:
+                                griddict[oqimt][kk] += gafs
             # Compute MMI from PGMs or IPE
             if do_mmi:
                 immi = imt.MMI()
+                griddict[immi] = {}
                 if isinstance(self.ipe, VirtualIPE):
-                    griddict[immi] = {}
                     gmice_imt = self.ipe.imt
                     griddict[immi]["mean"], dmda = self.gmice.getMIfromGM(
                         griddict[gmice_imt]["mean"],
@@ -738,6 +799,11 @@ class ModelModule(CoreModule):
                     )
                     gm2mi_var = (self.gmice.getGM2MIsd()[gmice_imt]) ** 2
                     dmda *= dmda
+
+                    if self.apply_gafs:
+                        gafs = get_generic_amp_factors(self.dx_out, str(immi))
+                        if gafs is not None:
+                            griddict[immi]["mean"] += gafs
                     for sdt in stddev_types:
                         if sdt not in griddict[gmice_imt]:
                             continue
@@ -750,19 +816,39 @@ class ModelModule(CoreModule):
                             )
                 else:
                     ffsim = FFSimmer(self.rff, measure="mean")
-                    if self.true_grid:
-                        mmidict = ffsim.true_grid(
-                            self.sites_obj_out.getVs30Grid(),
-                            {immi: self.ipe},
-                            [immi],
-                        )
+                    if self.do_grid:
+                        if self.true_grid:
+                            mmidict = ffsim.true_grid(
+                                self.sites_obj_out.getVs30Grid(),
+                                {immi: self.ipe},
+                                [immi],
+                            )
+                        else:
+                            mmidict = ffsim.compute_grid(
+                                self.sites_obj_out.getVs30Grid(),
+                                {immi: self.ipe},
+                                [immi],
+                            )
+                        for sdt in mmidict[immi]:
+                            griddict[immi][sdt] = mmidict[immi][sdt]
+                        if self.apply_gafs:
+                            gafs = get_generic_amp_factors(
+                                self.dx_out, str(immi)
+                            )
+                            if gafs is not None:
+                                griddict[immi]["mean"] += gafs
                     else:
-                        mmidict = ffsim.compute_grid(
-                            self.sites_obj_out.getVs30Grid(),
-                            {immi: self.ipe},
-                            [immi],
+                        ptdict = ffsim.compute_points(
+                            self.sx_out, {immi: self.ipe}, [immi]
                         )
-                    griddict[immi] = mmidict[immi]
+                        for sdt in ptdict[immi]["site"]:
+                            griddict[immi][sdt] = ptdict[immi]["site"][sdt]
+                            if self.apply_gafs and sdt == "mean":
+                                gafs = get_generic_amp_factors(
+                                    self.dx_out, str(immi)
+                                )
+                                if gafs is not None:
+                                    griddict[immi][sdt] += gafs
         else:
             griddict = {}
             shapes = []
@@ -820,7 +906,7 @@ class ModelModule(CoreModule):
                 self.atten_sx_rock,
                 self.atten_dx,
                 oqimt,
-                self.apply_gafs,
+                False,
             )
             self.atten_rock_mean[imt_str] = x_mean
             self.atten_rock_sd[imt_str] = x_sd[0]
@@ -829,7 +915,7 @@ class ModelModule(CoreModule):
                 self.atten_sx_soil,
                 self.atten_dx,
                 oqimt,
-                self.apply_gafs,
+                False,
             )
             self.atten_soil_mean[imt_str] = x_mean
             self.atten_soil_sd[imt_str] = x_sd[0]
@@ -998,6 +1084,9 @@ class ModelModule(CoreModule):
         self.smdx = self.config["interp"]["prediction_location"]["xres"]
         self.smdy = self.config["interp"]["prediction_location"]["yres"]
         self.nmax = self.config["interp"]["prediction_location"]["nmax"]
+        self.resolution_units = self.config["interp"]["prediction_location"][
+            "units"
+        ]
 
         # ---------------------------------------------------------------------
         # Get the Vs30 file name
@@ -1207,6 +1296,84 @@ class ModelModule(CoreModule):
             return
         if self.stations is None:
             return
+
+        lat_range = RANGE * DEG2KM
+        lon_range = (
+            RANGE * DEG2KM * np.cos(np.radians((self.south + self.north) / 2))
+        )
+        self.logger.debug(
+            f"TRIM: Latitude range for trimming data: {lat_range}"
+        )
+        self.logger.debug(
+            f"TRIM: Longitude range for trimming data: {lon_range}"
+        )
+
+        if self.trim_data:
+            east = self.east + lon_range
+            west = self.west - lon_range
+            north = self.north + lat_range
+            south = self.south - lat_range
+
+            dlat1 = self.east - self.west
+            dlon1 = self.north - self.south
+            dlat2 = east - west
+            dlon2 = north - south
+
+            self.logger.debug(
+                f"TRIM: Original longitude range: {self.west} to {self.east} ({dlon1:.2f} dd)"
+            )
+            self.logger.debug(
+                f"TRIM: Expanded longitude range: {west} to {east} ({dlon2:.2f} dd)"
+            )
+            self.logger.debug(
+                f"TRIM: Original latitude range: {self.south} to {self.north} ({dlat1:.2f} dd)"
+            )
+            self.logger.debug(
+                f"TRIM: Expanded latitude range: {south} to {north} ({dlat2:.2f} dd)"
+            )
+
+            ampquery = "SELECT count(*) from amp"
+            self.stations.cursor.execute(ampquery)
+            namps = self.stations.cursor.fetchone()[0]
+            staquery = "SELECT count(*) from station"
+            self.stations.cursor.execute(staquery)
+            nsta = self.stations.cursor.fetchone()[0]
+
+            delete_amps_query = (
+                "DELETE FROM amp WHERE station_id IN "
+                "(SELECT station_id FROM amp a "
+                "INNER JOIN station b ON (a.station_id = b.id) "
+                f"WHERE b.lat < {south:.3f} OR "
+                f"b.lat > {north:.3f} OR "
+                f"b.lon < {west:.3f} OR "
+                f"b.lon > {east:.3f})"
+            )
+            self.stations.cursor.execute(delete_amps_query)
+            deleted_amps = self.stations.cursor.rowcount
+            outbounds_query = (
+                "DELETE FROM station WHERE "
+                f"lat <= {south:.3f} OR "
+                f"lat > {north:.3f} OR "
+                f"lon <= {west:.3f} OR "
+                f"lon > {east:.3f}"
+            )
+            self.stations.cursor.execute(outbounds_query)
+            deleted_stations = self.stations.cursor.rowcount
+            self.logger.debug(
+                f"TRIM: Deleted {deleted_stations} stations and {deleted_amps} amps."
+            )
+            self.stations.db.commit()
+            self.stations.cursor.execute(ampquery)
+            namps2 = self.stations.cursor.fetchone()[0]
+            self.stations.cursor.execute(staquery)
+            nsta2 = self.stations.cursor.fetchone()[0]
+            self.logger.debug(
+                f"TRIM: Before trimming: {nsta} stations and {namps} amps."
+            )
+            self.logger.debug(
+                f"TRIM: After trimming: {nsta2} stations and {namps2} amps."
+            )
+
         component = self.config["interp"]["component"]
         for dfid, val, comp in (
             ("df1", True, component),
@@ -1677,7 +1844,10 @@ class ModelModule(CoreModule):
             df1["MMI_sd"] = np.full_like(df1["lon"], np.nan)
         df1["MMI_outliers"] = np.full_like(df1["lon"], True, dtype=bool)
         for imtstr in preferred_imts:
-            if "derived_MMI_from_" + imtstr in df1:
+            if (
+                "derived_MMI_from_" + imtstr in df1
+                and imtstr + "_outliers" in df1
+            ):
                 ixx = (np.isnan(df1["MMI"]) | df1["MMI_outliers"]) & ~(
                     np.isnan(df1["derived_MMI_from_" + imtstr])
                     | df1[imtstr + "_outliers"]
@@ -2045,13 +2215,11 @@ class ModelModule(CoreModule):
             self.outsd[imtstr] = pout_sd[0]
             self.outphi[imtstr] = self.psd[imtstr]
             self.outtau[imtstr] = self.tsd[imtstr]
-            # Special stuff for the MMI priors. When we make this apply to
-            # other IMTs we'll need to mess around with this block
-            if imtstr == "MMI":
-                self.mmi_add_uncertainty = np.array([])
-                self.mmi_sigma_hh_yd = np.array([])
-                self.mmi_c = np.array([])
-                self.mmi_sta_per_ix = np.array([])
+            # Special stuff for the IMT priors.
+            self.rez_add_uncertainty[imtstr] = np.array([])
+            self.rez_sigma_hh_yd[imtstr] = np.array([])
+            self.rez_c[imtstr] = np.array([])
+            self.rez_sta_per_ix[imtstr] = np.array([])
             return
 
         pout_sd2_phi = np.power(self.psd[imtstr], 2.0)
@@ -2096,14 +2264,8 @@ class ModelModule(CoreModule):
         sdsta_phi = sta_phi.flatten()
         matrix12_phi = np.empty(t2_12.shape, dtype=np.double)
         rcmatrix_phi = np.empty(t2_12.shape, dtype=np.double)
-        # Allocate the full big_c matrix only for the desired IMT (MMI). This
-        # is for generating realizations. Someday we will want to make this
-        # apply to other IMTs and become an optional flag for this module
-        # where we save the priors optionally
-        # Note: We would have to set up c_complete = {} at the top of the
-        # module, and then here, it would be c_complete[imtstr] = ...
-        if imtstr == "MMI":
-            c_complete = np.empty_like(t_y0)
+        # Allocate the full big_c matrix only for the desired IMTs
+        c_complete = np.empty_like(t_y0)
         for iy in range(self.smny):
             ss = iy * self.smnx
             se = (iy + 1) * self.smnx
@@ -2180,11 +2342,8 @@ class ModelModule(CoreModule):
             sdgrid_tau[iy, :] = np.sum(
                 np.multiply(c_tmp1, big_c, out=c_tmp2), out=s_tmp3, axis=1
             )
-            # This is where we would have a flag if we were saving the priors
-            # as an option
-            if imtstr == "MMI":
-                # Save big_c to complete full size big_c
-                c_complete[ss:se, :] = big_c
+            # Save big_c to complete full size big_c
+            c_complete[ss:se, :] = big_c
 
         #
         # This processing can result in MMI values that go beyond
@@ -2209,13 +2368,11 @@ class ModelModule(CoreModule):
         self.outphi[imtstr] = self.psd[imtstr]
         self.outtau[imtstr] = np.sqrt(sdgrid_tau, out=sdgrid_tau)
 
-        # Special stuff for the MMI priors. When we make this apply to other
-        # IMTs we'll need to mess around with this block
-        if imtstr == "MMI":
-            self.mmi_add_uncertainty = self.sta_sig_extra[imtstr]
-            self.mmi_sigma_hh_yd = self.cov_hh_yd[imtstr]
-            self.mmi_c = c_complete
-            self.mmi_sta_per_ix = sta_per_ix
+        # Special stuff for the IMT priors.
+        self.rez_add_uncertainty[imtstr] = self.sta_sig_extra[imtstr]
+        self.rez_sigma_hh_yd[imtstr] = self.cov_hh_yd[imtstr]
+        self.rez_c[imtstr] = c_complete
+        self.rez_sta_per_ix[imtstr] = sta_per_ix
 
     def _apply_custom_mask(self):
         """Apply custom masks to IMT grid outputs."""
@@ -2417,7 +2574,7 @@ class ModelModule(CoreModule):
         info[op][mi]["grid_spacing"] = {}
         info[op][mi]["grid_spacing"]["longitude"] = _string_round(self.smdx, 7)
         info[op][mi]["grid_spacing"]["latitude"] = _string_round(self.smdy, 7)
-        info[op][mi]["grid_spacing"]["units"] = "degrees"
+        info[op][mi]["grid_spacing"]["units"] = self.resolution_units
         info[op][mi]["grid_span"] = {}
         if self.east <= 0 and self.west >= 0:
             info[op][mi]["grid_span"]["longitude"] = _string_round(
@@ -2647,6 +2804,7 @@ class ModelModule(CoreModule):
 
             if (
                 "PGA" in sdf
+                and "PGA_outliers" in sdf
                 and not sdf["PGA_outliers"][six]
                 and not np.isnan(sdf["PGA"][six])
                 and (ndf != "df1" or not sdf["flagged"][six])
@@ -2659,6 +2817,7 @@ class ModelModule(CoreModule):
 
             if (
                 "PGV" in sdf
+                and "PGV_outliers" in sdf
                 and not sdf["PGV_outliers"][six]
                 and not np.isnan(sdf["PGV"][six])
                 and (ndf != "df1" or not sdf["flagged"][six])
@@ -2761,7 +2920,10 @@ class ModelModule(CoreModule):
                         mysd = "null"
                         flag = "0"
                     else:
-                        if sdf[myimt + "_outliers"][six] == 1:
+                        if (
+                            myimt + "_outliers" in sdf
+                            and sdf[myimt + "_outliers"][six] == 1
+                        ):
                             flag = "Outlier"
                         else:
                             flag = "0"
@@ -2796,7 +2958,10 @@ class ModelModule(CoreModule):
                         mysd = "null"
                         flag = "0"
                     else:
-                        if sdf[myimt + "_outliers"][six] == 1:
+                        if (
+                            myimt + "_outliers" in sdf
+                            and sdf[myimt + "_outliers"][six] == 1
+                        ):
                             flag = "Outlier"
                         else:
                             flag = "0"
@@ -2897,6 +3062,10 @@ class ModelModule(CoreModule):
                 dm_arr = getattr(self.dx_out, dm, None)
                 if dm_arr is not None:
                     oc.setArray(["distances"], dm, dm_arr, metadata=metadata)
+        metadata["units"] = "seconds"
+        metadata["digits"] = 1
+        oc.setArray([], "imt_periods", self.imt_per, metadata=metadata)
+        oc.setDictionary([], "imt_per_ix", self.imt_per_ix)
 
         #
         # Output the data and uncertainty grids
@@ -2923,21 +3092,17 @@ class ModelModule(CoreModule):
                 self.outphi[key],
                 self.outtau[key],
             )
-            if key == "MMI":
-                sub_groups = ["imts", component, key]
-                oc.setArray(
-                    sub_groups, "add_uncertainty", self.mmi_add_uncertainty
-                )
-                oc.setArray(sub_groups, "Sigma_HH_YD", self.mmi_sigma_hh_yd)
-                oc.setArray(sub_groups, "C", self.mmi_c)
-                oc.setArray(sub_groups, "sta_per_ix", self.mmi_sta_per_ix)
-                oc.setArray(sub_groups, "sta_phi", self.sta_phi["MMI"])
-                oc.setArray(
-                    sub_groups, "sta_lons_rad", self.sta_lons_rad["MMI"]
-                )
-                oc.setArray(
-                    sub_groups, "sta_lats_rad", self.sta_lats_rad["MMI"]
-                )
+            # Realizations stuff
+            sub_groups = ["imts", component, key]
+            oc.setArray(
+                sub_groups, "add_uncertainty", self.rez_add_uncertainty[key]
+            )
+            oc.setArray(sub_groups, "Sigma_HH_YD", self.rez_sigma_hh_yd[key])
+            oc.setArray(sub_groups, "C", self.rez_c[key])
+            oc.setArray(sub_groups, "sta_per_ix", self.rez_sta_per_ix[key])
+            oc.setArray(sub_groups, "sta_phi", self.sta_phi[key])
+            oc.setArray(sub_groups, "sta_lons_rad", self.sta_lons_rad[key])
+            oc.setArray(sub_groups, "sta_lats_rad", self.sta_lats_rad[key])
         #
         # Directivity
         #
@@ -2991,6 +3156,9 @@ class ModelModule(CoreModule):
         #
         # Store the IMTs
         #
+        period_metadata = {"units": "seconds", "digits": 1}
+        oc.setArray([], "imt_periods", self.imt_per, metadata=period_metadata)
+        oc.setDictionary([], "imt_per_ix", self.imt_per_ix)
         ascii_ids = np.array(
             [np.char.encode(x, encoding="ascii") for x in self.idents]
         ).flatten()
@@ -3027,6 +3195,16 @@ class ModelModule(CoreModule):
                 self.pred_out_sd[key].flatten(),
                 std_metadata,
             )
+            sub_groups = ["imts", component, key]
+            oc.setArray(
+                sub_groups, "add_uncertainty", self.rez_add_uncertainty[key]
+            )
+            oc.setArray(sub_groups, "Sigma_HH_YD", self.rez_sigma_hh_yd[key])
+            oc.setArray(sub_groups, "C", self.rez_c[key])
+            oc.setArray(sub_groups, "sta_per_ix", self.rez_sta_per_ix[key])
+            oc.setArray(sub_groups, "sta_phi", self.sta_phi[key])
+            oc.setArray(sub_groups, "sta_lons_rad", self.sta_lons_rad[key])
+            oc.setArray(sub_groups, "sta_lats_rad", self.sta_lats_rad[key])
 
     def _store_attenuation_data(self, oc):
         """
@@ -3212,21 +3390,38 @@ class ModelModule(CoreModule):
         This is a helper function to adjust the resolution to be under
         the maximum value specified in the config.
         """
-        # We want to only use resolutions that are multiples of 1 minute or
-        # an integer division of 1 minute.
-        one_minute = 1 / 60
-        multiples = np.arange(1, 11)
-        divisions = 1 / multiples
-        factors = np.sort(np.unique(np.concatenate((divisions, multiples))))
-        ok_res = one_minute * factors
-        latspan = self.north - self.south
-
         # Deal with possible 180 longitude disontinuity
         if self.east > self.west:
             lonspan = self.east - self.west
         else:
             xmax = self.east + 360
             lonspan = xmax - self.west
+        latspan = self.north - self.south
+
+        # Need to track the ratio of the resolution (dx/dy) in terms of
+        #  degrees. It will be 1 if the units are specified as dd.
+        res_ratio = 1
+
+        # If units are km, convert to dd
+        if self.resolution_units == "km":
+            self.logger.info(
+                "Resolution units specified in km, converting to degrees."
+            )
+            clat = (self.north + self.south) / 2
+            self.smdx = np.degrees(
+                self.smdx / EARTH_RADIUS / np.cos(np.radians(clat))
+            )
+            self.smdy = np.degrees(self.smdy / EARTH_RADIUS)
+            res_ratio = self.smdx / self.smdy
+            self.resolution_units = "degrees"
+
+            self.logger.info(
+                f"Updated dx: {_string_round(self.smdx, 7)} ({self.resolution_units})"
+            )
+            self.logger.info(
+                f"Updatd dy: {_string_round(self.smdy, 7)} ({self.resolution_units})"
+            )
+
         nx = np.floor(lonspan / self.smdx) + 1
         ny = np.floor(latspan / self.smdy) + 1
         ngrid = nx * ny
@@ -3236,32 +3431,40 @@ class ModelModule(CoreModule):
                 "Extent and resolution of shakemap results in "
                 "too many grid points. Adjusting resolution..."
             )
-            self.logger.info("Longitude span: %f", lonspan)
-            self.logger.info("Latitude span: %f", latspan)
-            self.logger.info("Current dx: %f", self.smdx)
-            self.logger.info("Current dy: %f", self.smdy)
-            self.logger.info("Current number of grid points: %i", ngrid)
-            self.logger.info("Max grid points allowed: %i", nmax)
-            target_res = (
-                -(latspan + lonspan)
-                - np.sqrt(
-                    latspan**2
-                    + lonspan**2
-                    + 2 * latspan * lonspan * (2 * nmax - 1)
-                )
-            ) / (2 * (1 - nmax))
+            self.logger.info(f"Longitude span: {lonspan}")
+            self.logger.info(f"Latitude span: {latspan}")
+            self.logger.info(
+                f"Current dx: {_string_round(self.smdx, 7)} ({self.resolution_units})"
+            )
+            self.logger.info(
+                f"Current dy: {_string_round(self.smdy, 7)} ({self.resolution_units})"
+            )
+            self.logger.info(f"Current number of grid points: {int(ngrid)}")
+            self.logger.info(f"Max grid points allowed: {int(nmax)}")
 
-            if np.any(ok_res > target_res):
-                sel_res = np.min(ok_res[ok_res > target_res])
-            else:
-                sel_res = np.max(ok_res)
-            self.smdx = sel_res
-            self.smdy = sel_res
-            self.logger.info("Updated dx: %f", self.smdx)
-            self.logger.info("Updatd dy: %f", self.smdy)
+            # Solve for dx and dy using quadratic formula, assuming the
+            # res_ratio that was determined previously.
+            quad_a = nmax - 1
+            quad_b = -latspan - lonspan / res_ratio
+            quad_c = -lonspan * latspan / res_ratio
+            new_dy = (
+                (-quad_b + np.sqrt(quad_b**2 - 4 * quad_a * quad_c))
+                / 2
+                / quad_a
+            )
+            new_dx = new_dy * res_ratio
+
+            self.smdx = new_dx
+            self.smdy = new_dy
+            self.logger.info(
+                f"Updated dx: {_string_round(self.smdx, 7)} ({self.resolution_units})"
+            )
+            self.logger.info(
+                f"Updatd dy: {_string_round(self.smdy, 7)} ({self.resolution_units})"
+            )
             nx = np.floor(lonspan / self.smdx) + 1
             ny = np.floor(latspan / self.smdy) + 1
-            self.logger.info("Updated number of grid points: %i", nx * ny)
+            self.logger.info(f"Updated number of grid points: {int(nx * ny)}")
 
 
 def _round_float(val, digits):

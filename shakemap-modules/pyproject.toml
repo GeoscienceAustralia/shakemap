@@ -10,21 +10,22 @@ cache-keys = [{ file = "**" }]
 
 [project]
 name = "shakemap-modules"
-version = "1.1.4post1"
+version = "1.1.16"
 description = "USGS Earthquake Impact ShakeMap Modules"
 authors = [
     {name = "Bruce Worden", email="cbworden@contractor.usgs.gov"},
     {name = "Eric Thompson", email="emthompsone@usgs.gov"},
     {name = "Mike Hearne", email="mhearne@usgs.gov"},
 ]
-license = {file = "LICENSE.md"}
+license = "CC0-1.0"
+license-files = ["LICENSE.md"]
 readme = "README.md"
 requires-python = ">=3.9"
 
 # Requirements:
 dependencies = [
     "configobj>=5.0.8",
-    "esi-shakelib>=1.1.1",
+    "esi-shakelib>=1.1.16",
     "h5py>=3.8.0",
     "importlib-resources>=6.0.0",
 ]
@@ -54,14 +55,14 @@ dyfi = [
 ]
 exception = []
 gridxml = [
-    "esi-core>=1.0.2",
+    "esi-core>=1.2.3",
     "mapio>=0.8.8",
 ]
 history = []
 info = []
 kml = [
-    "esi-core>=1.0.2",
-    "esi-utils-colors>=1.0.3",
+    "esi-core>=1.2.3",
+    "esi-utils-colors>=1.0.5",
     "mapio>=0.8.8",
     "fiona>=1.9.4.post1",
     "lxml",
@@ -72,9 +73,8 @@ kml = [
 ]
 mapping = [
     "dill",
-    "esi-utils-colors>=1.0.3",
-    "esi-utils-geo>=0.9.2",
-    "esi-utils-gmice>=1.0",
+    "esi-utils-colors>=1.0.5",
+    "esi-utils-geo>=0.9.9",
     "esi-utils-textformat>=1.0",
     "mapio>=0.8.8",
     "cartopy>=0.22.0",
@@ -83,7 +83,7 @@ mapping = [
     "scipy",
 ]
 model = [
-    "esi-core>=1.0.2",
+    "esi-core>=1.2.3",
     "mapio>=0.8.8",
     "cartopy>=0.22.0",
     "fiona>=1.9.4.post1",
@@ -98,8 +98,8 @@ raster = [
 rupture = []
 save = []
 shape = [
-    "esi-core>=1.0.2",
-    "esi-utils-colors>=1.0.3",
+    "esi-core>=1.2.3",
+    "esi-utils-colors>=1.0.5",
     "fiona>=1.9.4.post1",
     "scikit-image",
 ]
@@ -118,9 +118,8 @@ transfer-scp = [
     "esi-utils-transfer>=0.1.2",
 ]
 uncertaintymaps = [
-    "esi-utils-colors>=1.0.3",
-    "esi-utils-geo>=0.9.2",
-    "esi-utils-gmice>=1.0",
+    "esi-utils-colors>=1.0.5",
+    "esi-utils-geo>=0.9.9",
     "esi-utils-textformat>=1.0",
     "mapio>=0.8.8",
     "cartopy>=0.22.0",

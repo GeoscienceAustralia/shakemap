@@ -90,9 +90,13 @@ class GridXMLModule(CoreModule):
         """
         if self.process == "shakemap":
             install_path, data_path = get_config_paths()
-            datadir = os.path.join(data_path, self._eventid, "current", "products")
+            datadir = os.path.join(
+                data_path, self._eventid, "current", "products"
+            )
             if not os.path.isdir(datadir):
-                raise NotADirectoryError(f"{datadir} is not a valid directory.")
+                raise NotADirectoryError(
+                    f"{datadir} is not a valid directory."
+                )
             datafile = os.path.join(datadir, "shake_result.hdf")
         else:
             if datafile is None:
@@ -178,15 +182,15 @@ class GridXMLModule(CoreModule):
                         event_info["origin_time"], constants.ALT_TIMEFMT
                     )
                 event_dict["event_description"] = event_info["location"]
-                event_dict["event_network"] = info["input"]["event_information"][
-                    "eventsource"
-                ]
+                event_dict["event_network"] = info["input"][
+                    "event_information"
+                ]["eventsource"]
                 event_dict["intensity_observations"] = info["input"][
                     "event_information"
                 ]["intensity_observations"]
-                event_dict["seismic_stations"] = info["input"]["event_information"][
-                    "seismic_stations"
-                ]
+                event_dict["seismic_stations"] = info["input"][
+                    "event_information"
+                ]["seismic_stations"]
                 if info["input"]["event_information"]["fault_ref"] == "Origin":
                     event_dict["point_source"] = "True"
                 else:
@@ -199,10 +203,10 @@ class GridXMLModule(CoreModule):
                 shake_dict["shakemap_version"] = info["processing"][
                     "shakemap_versions"
                 ]["map_version"]
-                shake_dict["code_version"] = "4.1.5"
-                # shake_dict["code_version"] = info["processing"]["shakemap_versions"][
-                #     "shakemap_revision"
-                # ]
+                # shake_dict["code_version"] = "4.1.5"
+                shake_dict["code_version"] = info["processing"][
+                    "shakemap_versions"
+                ]["shakemap_revision"]
                 ptime = info["processing"]["shakemap_versions"]["process_time"]
                 try:
                     shake_dict["process_timestamp"] = datetime.strptime(
@@ -213,14 +217,21 @@ class GridXMLModule(CoreModule):
                         ptime, constants.ALT_TIMEFMT
                     )
 
-                shake_dict["shakemap_originator"] = config["system"]["source_network"]
+                shake_dict["shakemap_originator"] = config["system"][
+                    "source_network"
+                ]
                 shake_dict["map_status"] = config["system"]["map_status"]
                 shake_dict["shakemap_event_type"] = "ACTUAL"
                 if event_dict["event_id"].endswith("_se"):
                     shake_dict["shakemap_event_type"] = "SCENARIO"
 
                 shake_grid = ShakeGrid(
-                    layers, geodict, event_dict, shake_dict, {}, field_keys=field_keys
+                    layers,
+                    geodict,
+                    event_dict,
+                    shake_dict,
+                    {},
+                    field_keys=field_keys,
                 )
                 if component == "GREATER_OF_TWO_HORIZONTAL":
                     fname = f"{xml_type}.xml"

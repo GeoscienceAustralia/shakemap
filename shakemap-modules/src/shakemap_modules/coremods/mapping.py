@@ -79,7 +79,8 @@ class MappingModule(CoreModule):
         Set up the object to accept the --display-magnitude flag
         """
         parser = argparse.ArgumentParser(
-            prog=self.__class__.command_name, description=inspect.getdoc(self.__class__)
+            prog=self.__class__.command_name,
+            description=inspect.getdoc(self.__class__),
         )
         parser.add_argument(
             "-m",
@@ -102,7 +103,9 @@ class MappingModule(CoreModule):
         # will not work as it will suck up any later modules'
         # options that are the same as this one's.
         #
-        parser.add_argument("rem", nargs=argparse.REMAINDER, help=argparse.SUPPRESS)
+        parser.add_argument(
+            "rem", nargs=argparse.REMAINDER, help=argparse.SUPPRESS
+        )
         args = parser.parse_args(arglist)
         if args.display_magnitude:
             self.display_magnitude = args.display_magnitude
@@ -119,7 +122,9 @@ class MappingModule(CoreModule):
         """
         if self.process == "shakemap":
             install_path, data_path = get_config_paths()
-            datadir = os.path.join(data_path, self._eventid, "current", "products")
+            datadir = os.path.join(
+                data_path, self._eventid, "current", "products"
+            )
             datafile = os.path.join(datadir, "shake_result.hdf")
         else:
             if outdir is None:
@@ -206,8 +211,12 @@ class MappingModule(CoreModule):
         xmax = info["output"]["map_information"]["max"]["longitude"]
         ymin = info["output"]["map_information"]["min"]["latitude"]
         ymax = info["output"]["map_information"]["max"]["latitude"]
-        dy = float(info["output"]["map_information"]["grid_spacing"]["latitude"])
-        dx = float(info["output"]["map_information"]["grid_spacing"]["longitude"])
+        dy = float(
+            info["output"]["map_information"]["grid_spacing"]["latitude"]
+        )
+        dx = float(
+            info["output"]["map_information"]["grid_spacing"]["longitude"]
+        )
         padx = 5 * dx
         pady = 5 * dy
         sxmin = float(xmin) - padx
@@ -215,7 +224,9 @@ class MappingModule(CoreModule):
         symin = float(ymin) - pady
         symax = float(ymax) + pady
 
-        sampledict = GeoDict.createDictFromBox(sxmin, sxmax, symin, symax, dx, dy)
+        sampledict = GeoDict.createDictFromBox(
+            sxmin, sxmax, symin, symax, dx, dy
+        )
         if topofile:
             topogrid = read(
                 topofile,
@@ -294,7 +305,10 @@ class MappingModule(CoreModule):
             )
         elif "CALLED_FROM_PYTEST" not in os.environ:
             oceans = cfeature.NaturalEarthFeature(
-                category="physical", name="ocean", scale="10m", facecolor=WATERCOLOR
+                category="physical",
+                name="ocean",
+                scale="10m",
+                facecolor=WATERCOLOR,
             )
             _ = oceans.geometries()
 
@@ -306,18 +320,25 @@ class MappingModule(CoreModule):
             )
         elif "CALLED_FROM_PYTEST" not in os.environ:
             lakes = cfeature.NaturalEarthFeature(
-                category="physical", name="lakes", scale="10m", facecolor=WATERCOLOR
+                category="physical",
+                name="lakes",
+                scale="10m",
+                facecolor=WATERCOLOR,
             )
             _ = lakes.geometries()
 
         if faultfile is not None:
             faults = ShapelyFeature(
-                Reader(faultfile).geometries(), ccrs.PlateCarree(), facecolor="none"
+                Reader(faultfile).geometries(),
+                ccrs.PlateCarree(),
+                facecolor="none",
             )
 
         if roadfile is not None:
             roads = ShapelyFeature(
-                Reader(roadfile).geometries(), ccrs.PlateCarree(), facecolor="none"
+                Reader(roadfile).geometries(),
+                ccrs.PlateCarree(),
+                facecolor="none",
             )
 
         alist = []
@@ -359,6 +380,11 @@ class MappingModule(CoreModule):
             }
             alist.append(d)
             if imtype == "MMI":
+                for value in d.values():
+                    if hasattr(value, "_crs") and isinstance(
+                        value._crs, ccrs.Projection
+                    ):
+                        value._crs = ccrs.PlateCarree()
                 g = copy.deepcopy(d)
                 g["imtype"] = "thumbnail"
                 alist.append(g)
@@ -491,7 +517,9 @@ def make_pin_thumbnail(adict):
     mx_grid, my_grid = np.meshgrid(x_grid, y_grid)
 
     grid = griddata(
-        np.hstack([randx.reshape((-1, 1)) * 400, randy.reshape((-1, 1)) * 400]),
+        np.hstack(
+            [randx.reshape((-1, 1)) * 400, randy.reshape((-1, 1)) * 400]
+        ),
         grid[ry, rx],
         (mx_grid, my_grid),
         method="nearest",
@@ -499,7 +527,9 @@ def make_pin_thumbnail(adict):
     grid = (grid * 10 + 0.5).astype(np.int_).astype(np.float32) / 10.0
 
     rgrid = griddata(
-        np.hstack([randx.reshape((-1, 1)) * 400, randy.reshape((-1, 1)) * 400]),
+        np.hstack(
+            [randx.reshape((-1, 1)) * 400, randy.reshape((-1, 1)) * 400]
+        ),
         rvals,
         (mx_grid, my_grid),
         method="nearest",

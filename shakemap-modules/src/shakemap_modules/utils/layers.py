@@ -5,6 +5,11 @@ from functools import partial
 
 import numpy as np
 
+try:
+    _ = np.RankWarning  # will work on numpy < 2
+except AttributeError:
+    setattr(np, "RankWarning", RuntimeWarning)  # will work on numpy > 2
+
 # third party imports
 import pyproj
 import shakemap_modules.utils.config as config
@@ -34,7 +39,9 @@ def validate_config(mydict, install_path, data_path, global_data_path):
     """
     for key in mydict:
         if isinstance(mydict[key], dict):
-            validate_config(mydict[key], install_path, data_path, global_data_path)
+            validate_config(
+                mydict[key], install_path, data_path, global_data_path
+            )
             continue
         if key == "horizontal_buffer" or key == "vertical_buffer":
             mydict[key] = config.cfg_float(mydict[key])
@@ -48,7 +55,14 @@ def validate_config(mydict, install_path, data_path, global_data_path):
             mydict[key] = path_macro_sub(
                 mydict[key], ip=install_path, dp=data_path, gp=global_data_path
             )
-        elif key in ("x1", "x2", "p1", "p2", "p_kagan_default", "default_slab_depth"):
+        elif key in (
+            "x1",
+            "x2",
+            "p1",
+            "p2",
+            "p_kagan_default",
+            "default_slab_depth",
+        ):
             mydict[key] = float(mydict[key])
         elif key in ("ipe", "gmice", "ccf"):
             pass
@@ -182,7 +196,9 @@ def update_config_regions(lat, lon, config):
             if layer == "layer_dir":
                 continue
             if layer not in geo_layers:
-                logging.warning(f"Error: cannot find layer {layer} in {layer_dir}")
+                logging.warning(
+                    f"Error: cannot find layer {layer} in {layer_dir}"
+                )
                 continue
             ldist = geo_layers[layer]
             if ldist < min_dist_to_layer:

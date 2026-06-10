@@ -2,7 +2,6 @@
 import argparse
 import inspect
 import json
-import os.path
 import pathlib
 import re
 import sqlite3
@@ -20,6 +19,9 @@ from shakemap_modules.utils.dataframe import generate_ids
 from shakemap_modules.utils.points_to_station import points_to_station
 
 STATS = ["mean", "std"]
+# what are the patterns that signal an HDF array that does not match the
+# dimensionality of the data values (mmi, pga, etc.)
+NON_DATA_ARRAY_REGEX = "_C|Sigma|add_uncertainty|_rad|per_ix|sta_phi"
 
 
 def get_row_col(geodict, lat, lon):
@@ -47,6 +49,7 @@ def read_hdf_points(fileobj):
     val_columns["id"] = [rowid.decode("utf8") for rowid in arrays["PGA"]["ids"][:]]
     val_columns["lat"] = arrays["PGA"]["lats"][:]
     val_columns["lon"] = arrays["PGA"]["lons"][:]
+    val_columns["vs30"] = fileobj["arrays"]["vs30"][:]
     dataframes = {}
     for imc in imclist:
         arrays = fileobj["arrays"]["imts"][imc]
@@ -55,7 +58,10 @@ def read_hdf_points(fileobj):
                 if stat in ["ids", "lats", "lons", "tau", "phi"]:
                     continue
                 key = f"{imt}_{stat}"
-                val_columns[key] = array[:]
+                if re.search(NON_DATA_ARRAY_REGEX, key) is not None:
+                    continue
+                data_array = np.squeeze(array[:])
+                val_columns[key] = data_array
 
         dataframe = pd.DataFrame(data=val_columns)
         dataframes[imc] = dataframe

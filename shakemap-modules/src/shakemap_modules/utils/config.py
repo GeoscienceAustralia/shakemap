@@ -115,14 +115,16 @@ def get_model_config(install_path, datadir, logger):
     validator = get_custom_validator()
     logger.debug("Looking for configuration files...")
     modules = ConfigObj(
-        os.path.join(install_path, "config", "modules.conf"), configspec=f"{spec_file}"
+        os.path.join(install_path, "config", "modules.conf"),
+        configspec=f"{spec_file}",
     )
     gmpe_sets = ConfigObj(
         os.path.join(install_path, "config", "gmpe_sets.conf"),
         configspec=f"{spec_file}",
     )
     global_config = ConfigObj(
-        os.path.join(install_path, "config", "model.conf"), configspec=f"{spec_file}"
+        os.path.join(install_path, "config", "model.conf"),
+        configspec=f"{spec_file}",
     )
 
     #
@@ -134,7 +136,9 @@ def get_model_config(install_path, datadir, logger):
     if os.path.isfile(event_config_file):
         event_config = ConfigObj(event_config_file, configspec=f"{spec_file}")
     elif os.path.isfile(event_config_zc_file):
-        event_config = ConfigObj(event_config_zc_file, configspec=f"{spec_file}")
+        event_config = ConfigObj(
+            event_config_zc_file, configspec=f"{spec_file}"
+        )
     else:
         event_config = ConfigObj()
 
@@ -144,6 +148,30 @@ def get_model_config(install_path, datadir, logger):
     global_config.merge(event_config)
     global_config.merge(modules)
     global_config.merge(gmpe_sets)
+
+    # Need to track resolution units
+    xres_str = global_config["interp"]["prediction_location"]["xres"]
+    yres_str = global_config["interp"]["prediction_location"]["yres"]
+
+    def _clean_units(unit_str):
+        units = unit_str[-1:]
+        if units.isdigit():
+            units = ""
+        return units
+
+    xunits = _clean_units(xres_str)
+    yunits = _clean_units(yres_str)
+
+    if xunits != yunits:
+        raise ValueError("xres and yres units do not match.")
+
+    dd_strs = ["d", "m", "c", "", "."]
+    if xunits in dd_strs:
+        global_config["interp"]["prediction_location"]["units"] = "degrees"
+    elif xunits == "k":
+        global_config["interp"]["prediction_location"]["units"] = "km"
+    else:
+        raise ValueError("Unsupported xres/yres units.")
 
     results = global_config.validate(validator)
     if not isinstance(results, bool) or not results:
@@ -257,7 +285,11 @@ def config_error(config, results):
     if errs:
         raise RuntimeError(
             "There %s %d %s in configuration."
-            % ("was" if errs == 1 else "were", errs, "error" if errs == 1 else "errors")
+            % (
+                "was" if errs == 1 else "were",
+                errs,
+                "error" if errs == 1 else "errors",
+            )
         )
 
 
@@ -354,7 +386,9 @@ def check_all_configs(configdir):
         if not os.path.isfile(configfile):
             missing_files.append(configfile)
             continue
-        config = ConfigObj(configfile, configspec=tspecfile, interpolation=False)
+        config = ConfigObj(
+            configfile, configspec=tspecfile, interpolation=False
+        )
         try:
             results = config.validate(val, preserve_errors=True)
         except Exception as e:
@@ -411,6 +445,8 @@ def annotatedfloat_type(value):
                 out = float(value.replace("m", "")) / 60.0
             elif value.endswith("d"):
                 out = float(value.replace("d", ""))
+            elif value.endswith("k"):
+                out = float(value.replace("k", ""))
             else:
                 raise ValidateError(value)
         except Exception:
@@ -767,7 +803,9 @@ def check_profile_config(config):
         if not data_exists:
             logging.warn(f"Data path for profile {profile} does not exist.")
             delete_profile = True
-        install_exists = os.path.isdir(config["profiles"][profile]["install_path"])
+        install_exists = os.path.isdir(
+            config["profiles"][profile]["install_path"]
+        )
         if not install_exists:
             logging.warn(f"Install path for profile {profile} does not exist.")
             delete_profile = True

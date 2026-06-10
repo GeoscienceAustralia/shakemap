@@ -3,8 +3,13 @@ import json
 import os.path
 
 # third party imports
-import numpy as np
 from scipy.ndimage import gaussian_filter
+import numpy as np
+
+try:
+    _ = np.RankWarning  # will work on numpy < 2
+except AttributeError:
+    setattr(np, "RankWarning", RuntimeWarning)  # will work on numpy > 2
 from openquake.hazardlib import imt
 
 # local imports
@@ -49,7 +54,9 @@ class CoverageModule(CoreModule):
         """
         if self.process == "shakemap":
             install_path, data_path = get_config_paths()
-            datadir = os.path.join(data_path, self._eventid, "current", "products")
+            datadir = os.path.join(
+                data_path, self._eventid, "current", "products"
+            )
             datafile = os.path.join(datadir, "shake_result.hdf")
         else:
             if outdir is None:
@@ -99,7 +106,9 @@ class CoverageModule(CoreModule):
                 symbol = "ln(cm/s)"
                 decimals = 2
             elif imtype.startswith("SA"):
-                description = (str(oqimt.period) + "-second Spectral Acceleration",)
+                description = (
+                    str(oqimt.period) + "-second Spectral Acceleration",
+                )
                 units = 'natural logarithm of "g"'
                 symbol = "ln(g)"
                 decimals = 2
@@ -122,13 +131,19 @@ class CoverageModule(CoreModule):
 
                 rgrid = fgrid[::decimation, ::decimation]
                 ny, nx = rgrid.shape
-                rnd_grd = np.flipud(np.around(rgrid, decimals=decimals)).flatten()
+                rnd_grd = np.flipud(
+                    np.around(rgrid, decimals=decimals)
+                ).flatten()
                 if imtype == "MMI":
                     rnd_grd = np.clip(rnd_grd, 1.0, 10.0)
                 xstart = metadata["xmin"]
-                xstop = metadata["xmin"] + (nx - 1) * decimation * metadata["dx"]
+                xstop = (
+                    metadata["xmin"] + (nx - 1) * decimation * metadata["dx"]
+                )
                 ystart = metadata["ymin"]
-                ystop = metadata["ymin"] + (ny - 1) * decimation * metadata["dy"]
+                ystop = (
+                    metadata["ymin"] + (ny - 1) * decimation * metadata["dy"]
+                )
 
                 coverage = {
                     "type": "Coverage",

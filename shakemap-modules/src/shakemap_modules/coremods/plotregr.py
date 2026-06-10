@@ -7,6 +7,11 @@ from configobj import ConfigObj
 # third party
 import matplotlib.pyplot as plt
 import numpy as np
+
+try:
+    _ = np.RankWarning  # will work on numpy < 2
+except AttributeError:
+    setattr(np, "RankWarning", RuntimeWarning)  # will work on numpy > 2
 from openquake.hazardlib import imt
 
 # local imports
@@ -48,7 +53,9 @@ class PlotRegr(CoreModule):
         """
         if self.process == "shakemap":
             install_path, data_path = get_config_paths()
-            datadir = os.path.join(data_path, self._eventid, "current", "products")
+            datadir = os.path.join(
+                data_path, self._eventid, "current", "products"
+            )
             datafile = os.path.join(datadir, "shake_result.hdf")
         else:
             if outdir is None:
@@ -66,7 +73,8 @@ class PlotRegr(CoreModule):
         oc = ShakeMapOutputContainer.load(datafile)
         if oc.getDataType() != "grid":
             raise NotImplementedError(
-                "plotregr module can only operate on " "gridded data not sets of points"
+                "plotregr module can only operate on "
+                "gridded data not sets of points"
             )
 
         # get the path to the products.conf file, load the config
@@ -97,10 +105,18 @@ class PlotRegr(CoreModule):
             soilsd = {}
             imtlist = oc.getIMTs(component)
             for myimt in imtlist:
-                rockgrid[myimt], _ = oc.getArray(["attenuation", "rock", myimt], "mean")
-                soilgrid[myimt], _ = oc.getArray(["attenuation", "soil", myimt], "mean")
-                rocksd[myimt], _ = oc.getArray(["attenuation", "rock", myimt], "std")
-                soilsd[myimt], _ = oc.getArray(["attenuation", "soil", myimt], "std")
+                rockgrid[myimt], _ = oc.getArray(
+                    ["attenuation", "rock", myimt], "mean"
+                )
+                soilgrid[myimt], _ = oc.getArray(
+                    ["attenuation", "soil", myimt], "mean"
+                )
+                rocksd[myimt], _ = oc.getArray(
+                    ["attenuation", "rock", myimt], "std"
+                )
+                soilsd[myimt], _ = oc.getArray(
+                    ["attenuation", "soil", myimt], "std"
+                )
             distances, _ = oc.getArray(["attenuation", "distances"], "rrup")
 
             stations = oc.getStationDict()
@@ -210,9 +226,9 @@ class PlotRegr(CoreModule):
             jdict["mean_bias"] = {}
             info = oc.getMetadata()
             for myimt in imtlist:
-                jdict["mean_bias"][myimt] = info["output"]["ground_motions"][myimt][
-                    "bias"
-                ]
+                jdict["mean_bias"][myimt] = info["output"]["ground_motions"][
+                    myimt
+                ]["bias"]
             jstring = json.dumps(jdict, allow_nan=False)
             afile = f"attenuation_curves{cfile}.json"
             jfile = os.path.join(datadir, afile)
@@ -248,11 +264,17 @@ def make_plots(adict):
     plt.semilogx(distances, rockgrid[myimt], "r", label="rock")
     plt.semilogx(distances, soilgrid[myimt], "g", label="soil")
     plt.semilogx(
-        distances, rockgrid[myimt] + rocksd[myimt], "r--", label="rock +/- stddev"
+        distances,
+        rockgrid[myimt] + rocksd[myimt],
+        "r--",
+        label="rock +/- stddev",
     )
     plt.semilogx(distances, rockgrid[myimt] - rocksd[myimt], "r--")
     plt.semilogx(
-        distances, soilgrid[myimt] + soilsd[myimt], "g--", label="soil +/- stddev"
+        distances,
+        soilgrid[myimt] + soilsd[myimt],
+        "g--",
+        label="soil +/- stddev",
     )
     plt.semilogx(distances, soilgrid[myimt] - soilsd[myimt], "g--")
 
@@ -270,7 +292,9 @@ def make_plots(adict):
                 imtstr = myimt.lower()
                 value = np.nan
                 for chan in station["properties"]["channels"]:
-                    if chan["name"].endswith("Z") or chan["name"].endswith("U"):
+                    if chan["name"].endswith("Z") or chan["name"].endswith(
+                        "U"
+                    ):
                         continue
                     for amp in chan["amplitudes"]:
                         if amp["name"] != imtstr:

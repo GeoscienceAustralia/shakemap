@@ -14,9 +14,14 @@ from xml.dom import minidom
 import defusedxml.ElementTree as dET
 import numpy as np
 
+try:
+    _ = np.RankWarning  # will work on numpy < 2
+except AttributeError:
+    setattr(np, "RankWarning", RuntimeWarning)  # will work on numpy > 2
+
 # local libraries
-from esi_utils_rupture import constants
 from openquake.hazardlib.geo.geodetic import geodetic_distance
+from esi_utils_rupture import constants
 
 # define all of the tables as dictionaries
 EVENT = OrderedDict(

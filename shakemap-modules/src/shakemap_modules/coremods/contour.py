@@ -8,6 +8,12 @@ import shutil
 import fiona
 from configobj import ConfigObj
 from fiona.crs import from_epsg
+import numpy as np
+
+try:
+    _ = np.RankWarning  # will work on numpy < 2
+except AttributeError:
+    setattr(np, "RankWarning", RuntimeWarning)  # will work on numpy > 2
 from openquake.hazardlib import imt
 
 # local imports
@@ -49,7 +55,9 @@ class ContourModule(CoreModule):
             self.filter_size = DEFAULT_FILTER_SIZE
 
         if process == "shakemap":
-            self.contents = Contents("Ground Motion Contours", "contours", eventid)
+            self.contents = Contents(
+                "Ground Motion Contours", "contours", eventid
+            )
         else:
             self.contents = None
         self.process = process
@@ -65,7 +73,9 @@ class ContourModule(CoreModule):
         """
         if self.process == "shakemap":
             install_path, data_path = get_config_paths()
-            datadir = os.path.join(data_path, self._eventid, "current", "products")
+            datadir = os.path.join(
+                data_path, self._eventid, "current", "products"
+            )
             datafile = os.path.join(datadir, "shake_result.hdf")
         else:
             if outdir is None:
@@ -86,7 +96,8 @@ class ContourModule(CoreModule):
 
         if container.getDataType() != "grid":
             raise NotImplementedError(
-                "contour module can only contour " "gridded data, not sets of points"
+                "contour module can only contour "
+                "gridded data, not sets of points"
             )
 
         # get the path to the products.conf file, load the config
@@ -106,7 +117,9 @@ class ContourModule(CoreModule):
 
         # create contour files
         self.logger.debug("Contouring to files...")
-        contour_to_files(container, datadir, self.logger, self.contents, filter_size)
+        contour_to_files(
+            container, datadir, self.logger, self.contents, filter_size
+        )
         container.close()
 
 
@@ -159,7 +172,9 @@ def contour_to_files(
         gmice_imts = []
         gmice_pers = []
     else:
-        gmice_imts = [imt.__name__ for imt in gmice.DEFINED_FOR_INTENSITY_MEASURE_TYPES]
+        gmice_imts = [
+            imt.__name__ for imt in gmice.DEFINED_FOR_INTENSITY_MEASURE_TYPES
+        ]
         gmice_pers = gmice.DEFINED_FOR_SA_PERIODS
 
     imtlist = container.getIMTs()
@@ -191,7 +206,8 @@ def contour_to_files(
                 contents.addFile(
                     "pgaContour",
                     "PGA Contours",
-                    "Contours of " + component + " peak " "ground acceleration (%g).",
+                    "Contours of " + component + " peak "
+                    "ground acceleration (%g).",
                     fname,
                     "application/json",
                 )
@@ -199,7 +215,8 @@ def contour_to_files(
                 contents.addFile(
                     "pgvContour",
                     "PGV Contours",
-                    "Contours of " + component + " peak " "ground velocity (cm/s).",
+                    "Contours of " + component + " peak "
+                    "ground velocity (cm/s).",
                     fname,
                     "application/json",
                 )
@@ -250,7 +267,10 @@ def contour_to_files(
             )
 
             line_strings = contour(
-                container.getIMTGrids(imtype, component), imtype, filter_size, my_gmice
+                container.getIMTGrids(imtype, component),
+                imtype,
+                filter_size,
+                my_gmice,
             )
 
             for feature in line_strings:

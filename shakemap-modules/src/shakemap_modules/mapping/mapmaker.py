@@ -4,11 +4,18 @@ from datetime import datetime
 
 import cartopy.crs as ccrs  # projections
 import fiona
+
+# import matplotlib as mpl
 import matplotlib.image as image
 import matplotlib.patheffects as path_effects
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 import numpy as np
+
+try:
+    _ = np.RankWarning  # will work on numpy < 2
+except AttributeError:
+    setattr(np, "RankWarning", RuntimeWarning)  # will work on numpy > 2
 import pyproj
 
 # third party imports
@@ -22,13 +29,16 @@ from shapely.geometry import mapping
 from shapely.geometry import shape as sShape
 from openquake.hazardlib import imt
 
+# from cmcrameri import cm
+# import cmasher as cmr
+
 # local imports
 from esi_utils_colors.cpalette import ColorPalette
 from esi_utils_rupture import constants
 from esi_utils_rupture.factory import rupture_from_dict
 from esi_utils_rupture.point_rupture import PointRupture
 from esi_utils_textformat.text import set_num_precision
-from gmice.wgrw12 import WGRW12
+from esi_shakelib.gmice.wgrw12 import WGRW12
 from esi_shakelib.plotting.contour import contour, getContourLevels
 from shakemap_modules.utils.utils import get_object_from_config
 from shakemap_modules.mapping.mercatormap import MercatorMap
@@ -42,7 +52,7 @@ FIGWIDTH = 9.5
 FIGHEIGHT = 10.0
 XOFFSET = 4  # how many pixels between the city dot and the city text
 VERT_EXAG = 0.1  # what is the vertical exaggeration for hillshade
-DEGREE_SYMBOL = "\u00B0"
+DEGREE_SYMBOL = "\u00b0"
 
 # define the zorder values for various map components
 # all of the zorder values for different plotted parameters
@@ -240,7 +250,10 @@ def _get_map_info(gd):
     center_lon = (xmin + xmax) / 2.0
 
     proj = ccrs.Mercator(
-        central_longitude=center_lon, min_latitude=ymin, max_latitude=ymax, globe=None
+        central_longitude=center_lon,
+        min_latitude=ymin,
+        max_latitude=ymax,
+        globe=None,
     )
     pproj = pyproj.Proj(proj.proj4_init)
     pxmin, pymin = pproj(xmin, ymin)
@@ -263,7 +276,14 @@ def _get_map_info(gd):
 
 
 def _draw_imt_legend(
-    fig, palette, imtype, _gmice, process_time, map_version, point_source, tdict
+    fig,
+    palette,
+    imtype,
+    _gmice,
+    process_time,
+    map_version,
+    point_source,
+    tdict,
 ):
     """Create a legend axis for non MMI plots.
 
@@ -294,7 +314,10 @@ def _draw_imt_legend(
     firstcol_width = 0.15
 
     font0 = FontProperties()
-    alignment = {"horizontalalignment": "center", "verticalalignment": "center"}
+    alignment = {
+        "horizontalalignment": "center",
+        "verticalalignment": "center",
+    }
     font0.set_weight("bold")
 
     if _gmice is None or not _gmice.supports(imtype):
@@ -321,7 +344,9 @@ def _draw_imt_legend(
             dmin, dmax = IMT_RANGES["SA"]
         else:
             dmin, dmax = IMT_RANGES[imtype]
-        imt_values = np.log(getContourLevels(dmin, dmax, itype=itype) / divisor)
+        imt_values = np.log(
+            getContourLevels(dmin, dmax, itype=itype) / divisor
+        )
 
         mmi_values, _ = _gmice.getMIfromGM(imt_values, imt.from_string(imtype))
         mmi_colors = [
@@ -422,7 +447,12 @@ def _draw_imt_legend(
     star_marker_x = circle_marker_x + item_sep[1]
     star_text_x = star_marker_x + label_pad
     plt.plot(
-        star_marker_x, yloc_seventh_row, "k*", markersize=12, mew=0.5, zorder=10000
+        star_marker_x,
+        yloc_seventh_row,
+        "k*",
+        markersize=12,
+        mew=0.5,
+        zorder=10000,
     )
     plt.text(
         star_text_x,
@@ -553,7 +583,10 @@ def _draw_mmi_legend(
     bottom = 4 / 14
 
     font0 = FontProperties()
-    alignment = {"horizontalalignment": "center", "verticalalignment": "center"}
+    alignment = {
+        "horizontalalignment": "center",
+        "verticalalignment": "center",
+    }
     font0.set_weight("bold")
 
     font1 = FontProperties()
@@ -562,7 +595,9 @@ def _draw_mmi_legend(
     # draw vertical cell separators
     sumwidth = 0.0
     gridleft = 0.0
-    plt.plot([gridleft, gridleft], [bottom, top], "k", clip_on=False)  # left edge
+    plt.plot(
+        [gridleft, gridleft], [bottom, top], "k", clip_on=False
+    )  # left edge
     plt.plot([0, 1], [top, top], "k", clip_on=False)
     plt.plot([0, 1], [bottom, bottom], "k", clip_on=False)
 
@@ -661,11 +696,19 @@ def _draw_mmi_legend(
         tdict["legend"]["processed"],
         process_time,
     )
-    plt.text(version_x, yloc_sixth_row, "%s %i: %s %s" % tpl, ha="right", va="center")
+    plt.text(
+        version_x,
+        yloc_sixth_row,
+        "%s %i: %s %s" % tpl,
+        ha="right",
+        va="center",
+    )
 
     ref = _gmice.name
     refx = 0
-    plt.text(refx, yloc_sixth_row, f"{tdict['legend']['scale']} {ref}", va="center")
+    plt.text(
+        refx, yloc_sixth_row, f"{tdict['legend']['scale']} {ref}", va="center"
+    )
 
     nsteps = 10
     for i, width in enumerate(tdict["mmi_scale"]["box_widths"]):
@@ -687,10 +730,18 @@ def _draw_mmi_legend(
             **alignment,
         )
         plt.text(
-            textleft, yloc_third_row, acceleration[i], fontproperties=font1, **alignment
+            textleft,
+            yloc_third_row,
+            acceleration[i],
+            fontproperties=font1,
+            **alignment,
         )
         plt.text(
-            textleft, yloc_fourth_row, velocity[i], fontproperties=font1, **alignment
+            textleft,
+            yloc_fourth_row,
+            velocity[i],
+            fontproperties=font1,
+            **alignment,
         )
 
         if i == 0:
@@ -713,7 +764,10 @@ def _draw_mmi_legend(
 
         # draw right edge of cell
         plt.plot(
-            [gridleft + width, gridleft + width], [bottom, top], "k", clip_on=False
+            [gridleft + width, gridleft + width],
+            [bottom, top],
+            "k",
+            clip_on=False,
         )  # right
 
         # draw little colored rectangles inside the MMI cells
@@ -946,7 +1000,9 @@ def _get_shaded(ptopo, contour_colormap):
     return draped_hsv
 
 
-def _draw_title(imt, adict, uncertainty=False, uncertainty_string="Total Uncertainty"):
+def _draw_title(
+    imt, adict, uncertainty=False, uncertainty_string="Total Uncertainty"
+):
     """Draw the map title.
     Args:
         imt (str): IMT that is being drawn on the map ('MMI', 'PGV',
@@ -1165,8 +1221,12 @@ def _get_draped(data, topodata, colormap):
         # use lightsource class to make our shaded topography
         ls1 = LightSource(azdeg=300, altdeg=45)
         ls2 = LightSource(azdeg=45, altdeg=45)
-        intensity1 = ls1.hillshade(topodata, fraction=0.25, vert_exag=VERT_EXAG)
-        intensity2 = ls2.hillshade(topodata, fraction=0.25, vert_exag=VERT_EXAG)
+        intensity1 = ls1.hillshade(
+            topodata, fraction=0.25, vert_exag=VERT_EXAG
+        )
+        intensity2 = ls2.hillshade(
+            topodata, fraction=0.25, vert_exag=VERT_EXAG
+        )
         intensity = intensity1 * 0.5 + intensity2 * 0.5
         del intensity1, intensity2
 
@@ -1296,7 +1356,9 @@ def draw_map(adict, override_scenario=False):
     epi_lon = origin.lon
 
     # load the cities data, limit to cities within shakemap bounds
-    cities = adict["allcities"].limitByBounds((gd.xmin, gd.xmax, gd.ymin, gd.ymax))
+    cities = adict["allcities"].limitByBounds(
+        (gd.xmin, gd.xmax, gd.ymin, gd.ymax)
+    )
 
     # get the map boundaries and figure size
     bounds, figsize, aspect = _get_map_info(gd)
@@ -1340,7 +1402,9 @@ def draw_map(adict, override_scenario=False):
     projstr = proj.proj4_init
 
     # get the projected IMT and topo grids
-    pimtgrid, ptopogrid = _get_projected_grids(imtgrid, adict["topogrid"], projstr)
+    pimtgrid, ptopogrid = _get_projected_grids(
+        imtgrid, adict["topogrid"], projstr
+    )
 
     # get the projected geodict
     proj_gd = pimtgrid.getGeoDict()
@@ -1349,6 +1413,18 @@ def draw_map(adict, override_scenario=False):
     ptopo_data = ptopogrid.getData()
 
     mmimap = ColorPalette.fromPreset("mmi")
+    # mmimap = ColorPalette.fromFile("/Users/cbworden/sm_colors2.cpt")
+
+    # z0 = np.linspace(1, 10, 100)
+    # z1 = np.linspace(1.01, 10.01, 100)
+    # mmimap = ColorPalette.fromColorMap(
+    #     #        "plasma", z0, z1, mpl.colormaps["plasma_r"]
+    #     "custom",
+    #     z0,
+    #     z1,
+    #     cmr.custom,
+    # )
+    # cm.glasgow_r)
 
     if imtype == "MMI":
         draped_hsv = _get_draped(pimtdata, ptopo_data, mmimap)
@@ -1402,7 +1478,9 @@ def draw_map(adict, override_scenario=False):
     if imtype != "MMI":
         # call the contour module in plotting to get the vertices of the
         # contour lines
-        contour_objects = contour(imtdict, imtype, adict["filter_size"], my_gmice)
+        contour_objects = contour(
+            imtdict, imtype, adict["filter_size"], my_gmice
+        )
 
         # get a color palette for the levels we have
         # levels = [c['properties']['value'] for c in contour_objects]
@@ -1446,7 +1524,9 @@ def draw_map(adict, override_scenario=False):
                     zorder=DASHED_CONTOUR_ZORDER,
                 )
 
-        white_box = dict(boxstyle="round", ec=(0, 0, 0), fc=(1.0, 1, 1), color="k")
+        white_box = dict(
+            boxstyle="round", ec=(0, 0, 0), fc=(1.0, 1, 1), color="k"
+        )
 
         # draw solid contours next - the ones over water will be covered by
         # ocean polygon
@@ -1465,14 +1545,23 @@ def draw_map(adict, override_scenario=False):
                 x, y = zip(*pmulti_line)
                 # color = imt_cmap.getDataColor(props['value'])
                 ax.plot(
-                    x, y, color=props["color"], linestyle="solid", zorder=CONTOUR_ZORDER
+                    x,
+                    y,
+                    color=props["color"],
+                    linestyle="solid",
+                    zorder=CONTOUR_ZORDER,
                 )
                 if arclen(pmulti_line) >= min_len:
                     # try to label each segment with black text in a white box
                     xc = x[int(len(x) / 3)]
                     yc = y[int(len(y) / 3)]
                     if _label_close_to_edge(
-                        xc, yc, proj_gd.xmin, proj_gd.xmax, proj_gd.ymin, proj_gd.ymax
+                        xc,
+                        yc,
+                        proj_gd.xmin,
+                        proj_gd.xmax,
+                        proj_gd.ymin,
+                        proj_gd.ymax,
                     ):
                         continue
                     # TODO: figure out if box is going to go outside the map,
@@ -1504,10 +1593,14 @@ def draw_map(adict, override_scenario=False):
     # ax.coastlines(resolution="10m", zorder=COAST_ZORDER, linewidth=3)
 
     if adict["states_provinces"]:
-        ax.add_feature(adict["states_provinces"], edgecolor="0.5", zorder=COAST_ZORDER)
+        ax.add_feature(
+            adict["states_provinces"], edgecolor="0.5", zorder=COAST_ZORDER
+        )
 
     if adict["countries"]:
-        ax.add_feature(adict["countries"], edgecolor="black", zorder=BORDER_ZORDER)
+        ax.add_feature(
+            adict["countries"], edgecolor="black", zorder=BORDER_ZORDER
+        )
 
     if adict["oceans"]:
         ax.add_feature(adict["oceans"], edgecolor="black", zorder=OCEAN_ZORDER)
@@ -1552,7 +1645,9 @@ def draw_map(adict, override_scenario=False):
             horizontalalignment="center",
             verticalalignment="center",
             rotation=45,
-            path_effects=[path_effects.Stroke(linewidth=1, foreground="black")],
+            path_effects=[
+                path_effects.Stroke(linewidth=1, foreground="black")
+            ],
         )
 
     # Draw the map scale in the unoccupied lower corner.
@@ -1598,7 +1693,13 @@ def draw_map(adict, override_scenario=False):
     map_version = int(info["processing"]["shakemap_versions"]["map_version"])
     if imtype == "MMI":
         _draw_mmi_legend(
-            fig, mmimap, _gmice, process_time, map_version, point_source, adict["tdict"]
+            fig,
+            mmimap,
+            _gmice,
+            process_time,
+            map_version,
+            point_source,
+            adict["tdict"],
         )
         # make a separate MMI legend
         fig2 = plt.figure(figsize=figsize)
@@ -1682,7 +1783,9 @@ def draw_uncertainty_map(adict, key, override_scenario=False):
     center_lon = origin.lon
 
     # load the cities data, limit to cities within shakemap bounds
-    cities = adict["allcities"].limitByBounds((gd.xmin, gd.xmax, gd.ymin, gd.ymax))
+    cities = adict["allcities"].limitByBounds(
+        (gd.xmin, gd.xmax, gd.ymin, gd.ymax)
+    )
 
     # get the map boundaries and figure size
     bounds, figsize, aspect = _get_map_info(gd)
@@ -1724,7 +1827,9 @@ def draw_uncertainty_map(adict, key, override_scenario=False):
     projstr = proj.proj4_init
 
     # get the projected IMT and topo grids
-    pimtgrid, ptopogrid = _get_projected_grids(imtgrid, adict["topogrid"], projstr)
+    pimtgrid, ptopogrid = _get_projected_grids(
+        imtgrid, adict["topogrid"], projstr
+    )
 
     # get the projected geodict
     proj_gd = pimtgrid.getGeoDict()
@@ -1763,10 +1868,14 @@ def draw_uncertainty_map(adict, key, override_scenario=False):
     # ax.coastlines(resolution="10m", zorder=COAST_ZORDER, linewidth=3)
 
     if adict["states_provinces"]:
-        ax.add_feature(adict["states_provinces"], edgecolor="0.5", zorder=COAST_ZORDER)
+        ax.add_feature(
+            adict["states_provinces"], edgecolor="0.5", zorder=COAST_ZORDER
+        )
 
     if adict["countries"]:
-        ax.add_feature(adict["countries"], edgecolor="black", zorder=BORDER_ZORDER)
+        ax.add_feature(
+            adict["countries"], edgecolor="black", zorder=BORDER_ZORDER
+        )
 
     if adict["oceans"]:
         ax.add_feature(adict["oceans"], edgecolor="black", zorder=OCEAN_ZORDER)
@@ -1795,7 +1904,9 @@ def draw_uncertainty_map(adict, key, override_scenario=False):
             horizontalalignment="center",
             verticalalignment="center",
             rotation=45,
-            path_effects=[path_effects.Stroke(linewidth=1, foreground="black")],
+            path_effects=[
+                path_effects.Stroke(linewidth=1, foreground="black")
+            ],
         )
 
     # Draw the map scale in the unoccupied lower corner.
@@ -1861,7 +1972,13 @@ def draw_uncertainty_map(adict, key, override_scenario=False):
         tdict["legend"]["processed"],
         process_time,
     )
-    plt.text(version_x, yloc_sixth_row, "%s %i: %s %s" % tpl, ha="right", va="center")
+    plt.text(
+        version_x,
+        yloc_sixth_row,
+        "%s %i: %s %s" % tpl,
+        ha="right",
+        va="center",
+    )
 
     cax = fig.add_axes([0.070, 0.12, 0.85, 0.25])
     plt.axis("off")

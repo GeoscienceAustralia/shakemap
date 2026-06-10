@@ -11,7 +11,11 @@ import pandas as pd
 from lxml import etree
 from openpyxl import load_workbook, utils
 
-COMPONENTS = ["GREATER_OF_TWO_HORIZONTALS", "GEOMETRIC_MEAN", "ARITHMETIC MEAN"]
+COMPONENTS = [
+    "GREATER_OF_TWO_HORIZONTALS",
+    "GEOMETRIC_MEAN",
+    "ARITHMETIC MEAN",
+]
 CHANNEL_PATTERNS = [
     "^[H,B][H,L,N][E,N,Z,1,2,3]$",  # match standard seed names
     "^H[1,2]$",  # match H1/H2
@@ -39,7 +43,7 @@ OPTIONAL = [
     "STRUCTURE",
     "DAMPING",
 ]
-FLOATRE = "[-+]?[0-9]*\.?[0-9]+"
+FLOATRE = r"[-+]?[0-9]*\.?[0-9]+"
 
 
 def generate_ids(data_length):
@@ -62,7 +66,10 @@ def modify_points_dataframe(dataframe):
     idcols = list(filter(regex_id.match, columns))
     vscols = list(filter(regex_vs30.match, columns))
     if not len(latcols) or not len(loncols):
-        msg = "Missing lat/lon columns in input points " f"file with columns: {columns}"
+        msg = (
+            "Missing lat/lon columns in input points "
+            f"file with columns: {columns}"
+        )
         raise Exception(msg)
     # change column names, save to csv format in current folder.
     latcol = latcols[0]
@@ -105,7 +112,9 @@ def dataframe_to_xml(df, xmlfile, reference=None):
     root = etree.Element("shakemap-data", code_version="3.5", map_version="3")
 
     create_time = int(time.time())
-    stationlist = etree.SubElement(root, "stationlist", created=f"{int(create_time):d}")
+    stationlist = etree.SubElement(
+        root, "stationlist", created=f"{int(create_time):d}"
+    )
     if reference is not None:
         stationlist.attrib["reference"] = reference
 

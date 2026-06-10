@@ -11,6 +11,12 @@ import argparse
 # third party imports
 import fiona
 import numpy as np
+
+try:
+    _ = np.RankWarning  # will work on numpy < 2
+except AttributeError:
+    setattr(np, "RankWarning", RuntimeWarning)  # will work on numpy > 2
+
 from configobj import ConfigObj
 import openquake.hazardlib.imt as OQIMT
 
@@ -61,7 +67,9 @@ class ShapeModule(CoreModule):
         """
         if self.process == "shakemap":
             install_path, data_path = get_config_paths()
-            datadir = os.path.join(data_path, self._eventid, "current", "products")
+            datadir = os.path.join(
+                data_path, self._eventid, "current", "products"
+            )
             datafile = os.path.join(datadir, "shake_result.hdf")
         else:
             if outdir is None:
@@ -80,7 +88,8 @@ class ShapeModule(CoreModule):
 
         if container.getDataType() != "grid":
             raise NotImplementedError(
-                "shape module can only contour " "gridded data, not sets of points"
+                "shape module can only contour "
+                "gridded data, not sets of points"
             )
 
         if self.process == "shakemap":
@@ -88,7 +97,9 @@ class ShapeModule(CoreModule):
         else:
             config_file = os.path.join(config, "products.conf")
         spec_file = f'{get_configspec("products")}'
-        config = ConfigObj(infile=config_file, configspec=spec_file, file_error=True)
+        config = ConfigObj(
+            infile=config_file, configspec=spec_file, file_error=True
+        )
         validator = get_custom_validator()
         results = config.validate(validator)
         if not isinstance(results, bool) or not results:
@@ -117,7 +128,9 @@ class ShapeModule(CoreModule):
             )
 
 
-def create_polygons(container, datadir, logger, max_workers, method="pcontour"):
+def create_polygons(
+    container, datadir, logger, max_workers, method="pcontour"
+):
     """Generates a set of closed polygons (with or without holes) using the
     specified method (either pcontour or skimage), and uses fiona to convert
     the resulting GeoJSON objects into ESRI-style shape files which are then
@@ -146,7 +159,9 @@ def create_polygons(container, datadir, logger, max_workers, method="pcontour"):
         gmice_imts = []
         gmice_pers = []
     else:
-        gmice_imts = [imt.__name__ for imt in gmice.DEFINED_FOR_INTENSITY_MEASURE_TYPES]
+        gmice_imts = [
+            imt.__name__ for imt in gmice.DEFINED_FOR_INTENSITY_MEASURE_TYPES
+        ]
         gmice_pers = gmice.DEFINED_FOR_SA_PERIODS
 
     component = list(container.getComponents())[0]
@@ -220,7 +235,10 @@ def create_polygons(container, datadir, logger, max_workers, method="pcontour"):
                 oqimt = OQIMT.from_string(imt)
                 if imt == "MMI" or (
                     imt not in gmice_imts
-                    and ("SA" not in gmice_imts or oqimt.period not in gmice_pers)
+                    and (
+                        "SA" not in gmice_imts
+                        or oqimt.period not in gmice_pers
+                    )
                 ):
                     my_gmice = None
                 else:
@@ -241,7 +259,8 @@ def create_polygons(container, datadir, logger, max_workers, method="pcontour"):
             }
             alist.append(a)
             copyfile(
-                os.path.join(smdata, "WGS1984.prj"), os.path.join(tdir, fname + ".prj")
+                os.path.join(smdata, "WGS1984.prj"),
+                os.path.join(tdir, fname + ".prj"),
             )
             lyrfile = os.path.join(smdata, fname + ".lyr")
             if not os.path.isfile(lyrfile):
@@ -265,7 +284,9 @@ def create_polygons(container, datadir, logger, max_workers, method="pcontour"):
                 worker(adict)
 
         zfilename = os.path.join(datadir, "shape.zip")
-        zfile = zipfile.ZipFile(zfilename, mode="w", compression=zipfile.ZIP_DEFLATED)
+        zfile = zipfile.ZipFile(
+            zfilename, mode="w", compression=zipfile.ZIP_DEFLATED
+        )
         filelist = []
         for dirpath, dirnames, filenames in os.walk(tdir):
             filelist.extend(filenames)
@@ -290,7 +311,9 @@ def make_shape_files(adict, method="pcontour"):
     gmice = adict["gmice"]
 
     if method == "pcontour":
-        gjson = pcontour(fgrid, dx, dy, xmin, ymax, contour_levels, 4, 0, fmt=1)
+        gjson = pcontour(
+            fgrid, dx, dy, xmin, ymax, contour_levels, 4, 0, fmt=1
+        )
         features = gjson["features"]
     elif method == "skimage":
         features = contour(gdict, imt, 10, gmice)

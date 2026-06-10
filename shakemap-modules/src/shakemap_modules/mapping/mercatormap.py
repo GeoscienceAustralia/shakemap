@@ -16,7 +16,9 @@ XOFFSET = 4  # how many pixels between the city dot and the city text
 
 
 class MercatorMap(object):
-    def __init__(self, bounds, figsize, cities, padding=0.25, dimensions=[0, 0, 1, 1]):
+    def __init__(
+        self, bounds, figsize, cities, padding=0.25, dimensions=[0, 0, 1, 1]
+    ):
         """
         Create an instance of MercatorMap, container class for Cartopy GeoAxes
         and city labeling.
@@ -111,6 +113,9 @@ class MercatorMap(object):
         self._padding = padding
 
         plt.sca(self._ax)
+
+    def __del__(self):
+        plt.close(self._figure_clone)
 
     @property
     def figure(self):
@@ -225,9 +230,15 @@ class MercatorMap(object):
         for idx, row in self._cities._dataframe.iterrows():
             if draw_dots:
                 self._ax.plot(
-                    row["lon"], row["lat"], "k.", transform=self._geoproj, zorder=zorder
+                    row["lon"],
+                    row["lat"],
+                    "k.",
+                    transform=self._geoproj,
+                    zorder=zorder,
                 )
-            _ = self.renderRow(row, fontname, fontsize, shadow, zorder, test=False)
+            _ = self.renderRow(
+                row, fontname, fontsize, shadow, zorder, test=False
+            )
 
         return Cities(self._cities._dataframe)
 
