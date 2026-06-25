@@ -16,9 +16,7 @@ XOFFSET = 4  # how many pixels between the city dot and the city text
 
 
 class MercatorMap(object):
-    def __init__(
-        self, bounds, figsize, cities, padding=0.25, dimensions=[0, 0, 1, 1]
-    ):
+    def __init__(self, bounds, figsize, cities, padding=0.25, dimensions=[0, 0, 1, 1]):
         """
         Create an instance of MercatorMap, container class for Cartopy GeoAxes
         and city labeling.
@@ -73,9 +71,11 @@ class MercatorMap(object):
 
         # clat = (ymin + ymax) / 2
 
-        # To avoid polygon clipping errors at the boundary, ensure the projection extent is a
-        # little larger than the map extent, being careful to not go past 90:
-        max_lat = min(ymax + 0.05, ymax + (90 - ymax) / 2)
+        # Ensure the projection extent both
+        # - completely covers the map extent (so that it works to plot our map)
+        # - covers all land polygons (except Antarctica I guess) to avoid clipping
+        #   errors when a coastline vertex coincides with the projection boundary
+        max_lat = max(ymax, 84)
 
         # Commenting out min_latitude because of this issue:
         # https://github.com/SciTools/cartopy/issues/1155#issuecomment-432941088
@@ -241,9 +241,7 @@ class MercatorMap(object):
                     transform=self._geoproj,
                     zorder=zorder,
                 )
-            _ = self.renderRow(
-                row, fontname, fontsize, shadow, zorder, test=False
-            )
+            _ = self.renderRow(row, fontname, fontsize, shadow, zorder, test=False)
 
         return Cities(self._cities._dataframe)
 
