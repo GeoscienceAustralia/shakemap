@@ -72,6 +72,11 @@ class MercatorMap(object):
             clon = (xmin + (xmax + 360)) / 2
 
         # clat = (ymin + ymax) / 2
+
+        # To avoid polygon clipping errors at the boundary, ensure the projection extent is a
+        # little larger than the map extent, being careful to not go past 90:
+        max_lat = min(ymax + 0.05, ymax + (90 - ymax) / 2)
+
         # Commenting out min_latitude because of this issue:
         # https://github.com/SciTools/cartopy/issues/1155#issuecomment-432941088
         # This seems to be a better, more consistent fix than dividing
@@ -79,7 +84,7 @@ class MercatorMap(object):
         self._proj = ccrs.Mercator(
             central_longitude=clon,
             #  min_latitude=ymin,
-            max_latitude=ymax,
+            max_latitude=max_lat,
             globe=None,
         )
         # self._proj = ccrs.AzimuthalEquidistant(central_longitude=clon,
