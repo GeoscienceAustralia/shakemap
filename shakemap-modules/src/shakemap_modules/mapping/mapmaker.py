@@ -344,9 +344,7 @@ def _draw_imt_legend(
             dmin, dmax = IMT_RANGES["SA"]
         else:
             dmin, dmax = IMT_RANGES[imtype]
-        imt_values = np.log(
-            getContourLevels(dmin, dmax, itype=itype) / divisor
-        )
+        imt_values = np.log(getContourLevels(dmin, dmax, itype=itype) / divisor)
 
         mmi_values, _ = _gmice.getMIfromGM(imt_values, imt.from_string(imtype))
         mmi_colors = [
@@ -595,9 +593,7 @@ def _draw_mmi_legend(
     # draw vertical cell separators
     sumwidth = 0.0
     gridleft = 0.0
-    plt.plot(
-        [gridleft, gridleft], [bottom, top], "k", clip_on=False
-    )  # left edge
+    plt.plot([gridleft, gridleft], [bottom, top], "k", clip_on=False)  # left edge
     plt.plot([0, 1], [top, top], "k", clip_on=False)
     plt.plot([0, 1], [bottom, bottom], "k", clip_on=False)
 
@@ -706,9 +702,7 @@ def _draw_mmi_legend(
 
     ref = _gmice.name
     refx = 0
-    plt.text(
-        refx, yloc_sixth_row, f"{tdict['legend']['scale']} {ref}", va="center"
-    )
+    plt.text(refx, yloc_sixth_row, f"{tdict['legend']['scale']} {ref}", va="center")
 
     nsteps = 10
     for i, width in enumerate(tdict["mmi_scale"]["box_widths"]):
@@ -1000,9 +994,7 @@ def _get_shaded(ptopo, contour_colormap):
     return draped_hsv
 
 
-def _draw_title(
-    imt, adict, uncertainty=False, uncertainty_string="Total Uncertainty"
-):
+def _draw_title(imt, adict, uncertainty=False, uncertainty_string="Total Uncertainty"):
     """Draw the map title.
     Args:
         imt (str): IMT that is being drawn on the map ('MMI', 'PGV',
@@ -1034,7 +1026,7 @@ def _draw_title(
         latstr = f"{tdict['title_parts']['south']}{np.abs(hlat):.2f}"
     else:
         latstr = f"{tdict['title_parts']['north']}{hlat:.2f}"
-    dep = float(edict["depth"])
+    dep = round(float(edict["depth"]), 0)
     eid = edict["event_id"]
     if imt.startswith("SA("):
         period = imt.replace("SA(", "").replace(")", "")
@@ -1042,9 +1034,9 @@ def _draw_title(
     else:
         imtstr = tdict["IMTYPES"][imt]
     if len(eid) <= 20:
-        fmt = "%s %s\n%s %s: %s\n %s %s %s%.1f %s %s " "%s: %.1f%s %s:%s"
+        fmt = "%s %s\n%s %s: %s\n %s %s %s%.1f %s %s %s: %.0f%s %s:%s"
     else:
-        fmt = "%s %s\n%s %s: %s\n %s %s %s%.1f %s %s " "%s: %.1f%s\n%s:%s"
+        fmt = "%s %s\n%s %s: %s\n %s %s %s%.1f %s %s %s: %.0f%s\n%s:%s"
     tstr = fmt % (
         imtstr,
         adict["operator"],
@@ -1221,12 +1213,8 @@ def _get_draped(data, topodata, colormap):
         # use lightsource class to make our shaded topography
         ls1 = LightSource(azdeg=300, altdeg=45)
         ls2 = LightSource(azdeg=45, altdeg=45)
-        intensity1 = ls1.hillshade(
-            topodata, fraction=0.25, vert_exag=VERT_EXAG
-        )
-        intensity2 = ls2.hillshade(
-            topodata, fraction=0.25, vert_exag=VERT_EXAG
-        )
+        intensity1 = ls1.hillshade(topodata, fraction=0.25, vert_exag=VERT_EXAG)
+        intensity2 = ls2.hillshade(topodata, fraction=0.25, vert_exag=VERT_EXAG)
         intensity = intensity1 * 0.5 + intensity2 * 0.5
         del intensity1, intensity2
 
@@ -1356,9 +1344,7 @@ def draw_map(adict, override_scenario=False):
     epi_lon = origin.lon
 
     # load the cities data, limit to cities within shakemap bounds
-    cities = adict["allcities"].limitByBounds(
-        (gd.xmin, gd.xmax, gd.ymin, gd.ymax)
-    )
+    cities = adict["allcities"].limitByBounds((gd.xmin, gd.xmax, gd.ymin, gd.ymax))
 
     # get the map boundaries and figure size
     bounds, figsize, aspect = _get_map_info(gd)
@@ -1402,9 +1388,7 @@ def draw_map(adict, override_scenario=False):
     projstr = proj.proj4_init
 
     # get the projected IMT and topo grids
-    pimtgrid, ptopogrid = _get_projected_grids(
-        imtgrid, adict["topogrid"], projstr
-    )
+    pimtgrid, ptopogrid = _get_projected_grids(imtgrid, adict["topogrid"], projstr)
 
     # get the projected geodict
     proj_gd = pimtgrid.getGeoDict()
@@ -1478,9 +1462,7 @@ def draw_map(adict, override_scenario=False):
     if imtype != "MMI":
         # call the contour module in plotting to get the vertices of the
         # contour lines
-        contour_objects = contour(
-            imtdict, imtype, adict["filter_size"], my_gmice
-        )
+        contour_objects = contour(imtdict, imtype, adict["filter_size"], my_gmice)
 
         # get a color palette for the levels we have
         # levels = [c['properties']['value'] for c in contour_objects]
@@ -1524,9 +1506,7 @@ def draw_map(adict, override_scenario=False):
                     zorder=DASHED_CONTOUR_ZORDER,
                 )
 
-        white_box = dict(
-            boxstyle="round", ec=(0, 0, 0), fc=(1.0, 1, 1), color="k"
-        )
+        white_box = dict(boxstyle="round", ec=(0, 0, 0), fc=(1.0, 1, 1), color="k")
 
         # draw solid contours next - the ones over water will be covered by
         # ocean polygon
@@ -1593,14 +1573,10 @@ def draw_map(adict, override_scenario=False):
     # ax.coastlines(resolution="10m", zorder=COAST_ZORDER, linewidth=3)
 
     if adict["states_provinces"]:
-        ax.add_feature(
-            adict["states_provinces"], edgecolor="0.5", zorder=COAST_ZORDER
-        )
+        ax.add_feature(adict["states_provinces"], edgecolor="0.5", zorder=COAST_ZORDER)
 
     if adict["countries"]:
-        ax.add_feature(
-            adict["countries"], edgecolor="black", zorder=BORDER_ZORDER
-        )
+        ax.add_feature(adict["countries"], edgecolor="black", zorder=BORDER_ZORDER)
 
     if adict["oceans"]:
         ax.add_feature(adict["oceans"], edgecolor="black", zorder=OCEAN_ZORDER)
@@ -1645,9 +1621,7 @@ def draw_map(adict, override_scenario=False):
             horizontalalignment="center",
             verticalalignment="center",
             rotation=45,
-            path_effects=[
-                path_effects.Stroke(linewidth=1, foreground="black")
-            ],
+            path_effects=[path_effects.Stroke(linewidth=1, foreground="black")],
         )
 
     # Draw the map scale in the unoccupied lower corner.
@@ -1783,9 +1757,7 @@ def draw_uncertainty_map(adict, key, override_scenario=False):
     center_lon = origin.lon
 
     # load the cities data, limit to cities within shakemap bounds
-    cities = adict["allcities"].limitByBounds(
-        (gd.xmin, gd.xmax, gd.ymin, gd.ymax)
-    )
+    cities = adict["allcities"].limitByBounds((gd.xmin, gd.xmax, gd.ymin, gd.ymax))
 
     # get the map boundaries and figure size
     bounds, figsize, aspect = _get_map_info(gd)
@@ -1827,9 +1799,7 @@ def draw_uncertainty_map(adict, key, override_scenario=False):
     projstr = proj.proj4_init
 
     # get the projected IMT and topo grids
-    pimtgrid, ptopogrid = _get_projected_grids(
-        imtgrid, adict["topogrid"], projstr
-    )
+    pimtgrid, ptopogrid = _get_projected_grids(imtgrid, adict["topogrid"], projstr)
 
     # get the projected geodict
     proj_gd = pimtgrid.getGeoDict()
@@ -1868,14 +1838,10 @@ def draw_uncertainty_map(adict, key, override_scenario=False):
     # ax.coastlines(resolution="10m", zorder=COAST_ZORDER, linewidth=3)
 
     if adict["states_provinces"]:
-        ax.add_feature(
-            adict["states_provinces"], edgecolor="0.5", zorder=COAST_ZORDER
-        )
+        ax.add_feature(adict["states_provinces"], edgecolor="0.5", zorder=COAST_ZORDER)
 
     if adict["countries"]:
-        ax.add_feature(
-            adict["countries"], edgecolor="black", zorder=BORDER_ZORDER
-        )
+        ax.add_feature(adict["countries"], edgecolor="black", zorder=BORDER_ZORDER)
 
     if adict["oceans"]:
         ax.add_feature(adict["oceans"], edgecolor="black", zorder=OCEAN_ZORDER)
@@ -1904,9 +1870,7 @@ def draw_uncertainty_map(adict, key, override_scenario=False):
             horizontalalignment="center",
             verticalalignment="center",
             rotation=45,
-            path_effects=[
-                path_effects.Stroke(linewidth=1, foreground="black")
-            ],
+            path_effects=[path_effects.Stroke(linewidth=1, foreground="black")],
         )
 
     # Draw the map scale in the unoccupied lower corner.
