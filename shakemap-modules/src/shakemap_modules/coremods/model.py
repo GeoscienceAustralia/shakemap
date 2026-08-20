@@ -102,6 +102,15 @@ FFSIMMER_SEED = 84608478034892579362136552699077168019
 EARTH_RADIUS = 6371.0
 
 
+# Monkeypatch to fix issues with vs30, depth going out of range of allen2022 model
+import openquake.hazardlib.gsim.allen_2022 as A2022
+
+_orig_site = A2022._get_site_scaling
+A2022._get_site_scaling = lambda C, vs30: _orig_site(C, np.clip(vs30, 220, 800))  # ty:ignore[invalid-assignment]
+_orig_depth = A2022._get_depth_scaling
+A2022._get_depth_scaling = lambda C, d: _orig_depth(C, np.clip(d, 10, 500))  # ty:ignore[invalid-assignment]
+
+
 class DataFrame:
     """
     Class to hold the two types of dataframes (instrumented and
